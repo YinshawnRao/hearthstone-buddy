@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { AppStatus, ViewState } from '../../shared/types';
 import { AdvicePanel } from './components/AdvicePanel';
 import { BoardView } from './components/BoardView';
+import { CardInspect } from './components/HsCard';
 import { SettingsDrawer } from './components/SettingsDrawer';
 
 function clock(iso: string | null): string {
@@ -34,6 +35,7 @@ function modelLabel(status: AppStatus): string {
 export function App() {
   const [state, setState] = useState<ViewState | null>(null);
   const [drawer, setDrawer] = useState(false);
+  const [inspect, setInspect] = useState<string | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -50,10 +52,12 @@ export function App() {
     });
     const offState = api.onState((next) => setState(next));
     const offSettings = api.onOpenSettings(() => setDrawer(true));
+    const offInspect = api.onInspect((cardId) => setInspect(cardId || null));
     return () => {
       alive = false;
       offState();
       offSettings();
+      offInspect();
     };
   }, []);
 
@@ -117,7 +121,7 @@ export function App() {
       </header>
 
       <main className="layout">
-        <BoardView board={board} />
+        <BoardView board={board} onInspect={setInspect} />
         <AdvicePanel
           advice={advice}
           status={status}
@@ -148,6 +152,7 @@ export function App() {
           });
         }}
       />
+      {inspect ? <CardInspect cardId={inspect} onClose={() => setInspect(null)} /> : null}
     </div>
   );
 }

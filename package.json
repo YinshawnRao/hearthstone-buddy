@@ -12,7 +12,8 @@
     "build": "npm run build -w @hs-coach/desktop",
     "start": "npm run start -w @hs-coach/desktop",
     "test": "npm run test -w @hs-coach/parser",
-    "typecheck": "npm run typecheck -w @hs-coach/parser && npm run typecheck -w @hs-coach/desktop"
+    "typecheck": "npm run typecheck -w @hs-coach/parser && npm run typecheck -w @hs-coach/desktop",
+    "cards:refresh": "node scripts/refresh-cards.mjs"
   },
   "engines": {
     "node": ">=20"

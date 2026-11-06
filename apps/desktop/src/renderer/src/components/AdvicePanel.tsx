@@ -19,7 +19,8 @@ export function AdvicePanel({
   const unconfigured = status.llm === 'unconfigured';
   return (
     <aside className="advice">
-      <p className="eyebrow">建议</p>
+      <div className="scroll-cap" />
+      <p className="eyebrow">军师笺</p>
       <h2>{advice?.summary ?? (unconfigured ? '先接上一个模型' : inGame ? '局面已经就绪' : '等待对局')}</h2>
       {advice && !advice.fallback && advice.steps.length > 0 ? (
         <ol className="steps">

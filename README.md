@@ -135,6 +135,39 @@ Demo mode parses a built-in Power.log excerpt (mage vs hunter). It is the same p
 
 With no key configured, the window still opens and the advice panel explains what to fill in.
 
+点一张手牌或随从会放大那张卡的官方风格渲染。这只是查看，不会替你打出这张牌。
+
+## 卡牌数据与插画 / Card data and art
+
+场面用 [HearthstoneJSON](https://hearthstonejson.com/)（HearthSim 维护的社区数据，不是从炉石客户端里拆出来的文件）。
+
+The board uses [HearthstoneJSON](https://hearthstonejson.com/), the community data set maintained by HearthSim. Nothing here is scraped from the Hearthstone client, and no client binaries are shipped.
+
+| 内容 | 地址 |
+| --- | --- |
+| 卡牌 JSON（简体中文，可收集卡） | `https://api.hearthstonejson.com/v1/latest/zhCN/cards.collectible.json` |
+| 整卡渲染 | `https://art.hearthstonejson.com/v1/render/latest/zhCN/256x/{cardId}.png` |
+| 原画 | `https://art.hearthstonejson.com/v1/256x/{cardId}.jpg` |
+| 英雄肖像 | `https://art.hearthstonejson.com/v1/heroes/latest/256x/{cardId}.png` |
+
+仓库里已经带了一份精简目录 `apps/desktop/src/renderer/public/cards/catalog.json`（含 `dbfId`、名字、费用、攻防、稀有度、系列），以及演示局面用到的渲染、原画和英雄肖像。演示模式因此可以离线显示这些卡。
+
+A slim catalog and the demo card renders/portraits are vendored, so demo mode still shows those cards offline.
+
+其它 CardID：界面先找本地文件，没有再请求 `art.hearthstonejson.com`。两边都失败时，用带稀有度描边的占位卡，而不是空白。
+
+Other card ids try the local file, then the art CDN, then a rarity-framed placeholder.
+
+刷新 / refresh:
+
+```bash
+npm run cards:refresh
+```
+
+这会重新下载 zhCN `cards.collectible.json` 并覆盖演示卡的图片。图片 API 的说明见 [HearthstoneJSON images](https://hearthstonejson.com/docs/images.html)：可以无偿使用，但高流量站点应自行托管，商业用途请联系 `contact@hearthsim.net`。炉石传说是暴雪娱乐的商标；本项目与暴雪无关。
+
+Hearthstone is a trademark of Blizzard Entertainment. This project is unofficial and is not affiliated with Blizzard.
+
 ## 架构 / Architecture
 
 ```
@@ -154,7 +187,7 @@ The legal-action list is a heuristic (mana, taunt, freeze, charge/rush, hero pow
 
 - macOS 安装体验、签名和菜单栏
 - 用 Options 包替换启发式动作，补上地标、奥秘和战吼目标
-- 可选下载 HearthstoneJSON，让未知 CardID 显示卡名
+- 按需缓存更多卡图到用户目录，而不是把全套渲染都放进仓库
 - 更完整的记牌，以及以后再考虑 Hearthstone Deck Tracker 插件
 - 不会做：自动代打
 
@@ -166,5 +199,6 @@ The legal-action list is a heuristic (mana, taunt, freeze, charge/rush, hero pow
 | `npm test` | 解析器、建议 JSON、日志路径 |
 | `npm run typecheck` | 桌面端和解析器的 TypeScript |
 | `npm run build` / `npm start` | 构建并用 Electron 打开产物 |
+| `npm run cards:refresh` | 重新下载 HearthstoneJSON 目录和演示卡图 |
 
 `.gitignore` 已忽略 `node_modules`、`dist`、`out`、`.env`、`config.json` 和日志文件。

@@ -1,14 +1,15 @@
-import type { BoardSnapshot, CardView, HeroView, MinionView } from '@hs-coach/parser';
+import type { BoardSnapshot, HeroView } from '@hs-coach/parser';
+import { ArtWindow, HandRender, MinionToken, Portrait } from './HsCard';
 
 function Mana({ available, max }: { available: number; max: number }) {
   const total = Math.min(10, Math.max(max, 0));
   return (
     <div className="mana" aria-label={`法力 ${available} / ${max}`}>
-      <strong>
+      <b>
         {available}
         <span>/{max}</span>
-      </strong>
-      <span className="pips">
+      </b>
+      <span className="crystals">
         {Array.from({ length: total }, (_, index) => (
           <i key={index} className={index < available ? 'on' : ''} />
         ))}
@@ -17,140 +18,132 @@ function Mana({ available, max }: { available: number; max: number }) {
   );
 }
 
-function HeroPlate({ hero, powerReady }: { hero: HeroView; powerReady?: boolean }) {
+function HeroMedal({ hero, powerReady }: { hero: HeroView; powerReady?: boolean }) {
   return (
-    <article className="hero">
-      <div>
-        <p className="eyebrow">{hero.className}</p>
-        <h3>{hero.name}</h3>
-        {hero.weapon ? (
-          <p className="weapon">
-            {hero.weapon.name} {hero.weapon.attack}/{hero.weapon.durability}
-          </p>
-        ) : null}
+    <div className="medal">
+      <div className="portrait-wrap">
+        <div className="portrait">
+          <Portrait cardId={hero.cardId} name={hero.name} />
+        </div>
+        {hero.armor > 0 ? <span className="armor-orb">{hero.armor}</span> : null}
+        <span className="health-orb">{hero.health}</span>
         {hero.heroPower ? (
-          <p className={powerReady ? 'power' : 'power dim'}>
-            {hero.heroPower.name} · {hero.heroPower.cost} 费
-          </p>
+          <div className={powerReady ? 'hp-orb' : 'hp-orb dim'} title={`${hero.heroPower.name} · ${hero.heroPower.cost} 费`}>
+            <ArtWindow cardId={hero.cardId ? `${hero.cardId}bp` : undefined} name={hero.heroPower.name} />
+            <b>{hero.heroPower.cost}</b>
+          </div>
         ) : null}
       </div>
-      <div className="hero-stats">
-        {hero.armor > 0 ? <span className="armor">{hero.armor}</span> : null}
-        <span className="life">{hero.health}</span>
+      <div className="medal-copy">
+        <p>{hero.className}</p>
+        <h3>{hero.name}</h3>
       </div>
-    </article>
+      {hero.weapon ? (
+        <p className="weapon-line">
+          {hero.weapon.name} {hero.weapon.attack}/{hero.weapon.durability}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
-function MinionCard({ minion }: { minion: MinionView }) {
-  const classes = [
-    'minion',
-    minion.taunt ? 'taunt' : '',
-    minion.divineShield ? 'shield' : '',
-    minion.frozen ? 'frozen' : '',
-    minion.canAttack ? 'ready' : ''
-  ]
-    .filter(Boolean)
-    .join(' ');
+function Backs({ count }: { count: number }) {
+  const shown = Math.min(count, 7);
   return (
-    <article className={classes}>
-      <h4>{minion.name}</h4>
-      {minion.keywords.length > 0 ? <p className="keys">{minion.keywords.join(' · ')}</p> : <p className="keys quiet">随从</p>}
-      {minion.canAttack ? <p className="ready-flag">可攻击</p> : null}
-      <span className="gem atk">{minion.attack}</span>
-      <span className="gem hp">{minion.health}</span>
-    </article>
+    <div className="backs" aria-label={`对手手牌 ${count}`}>
+      {Array.from({ length: shown }, (_, index) => (
+        <i key={index} />
+      ))}
+      <span>{count}</span>
+    </div>
   );
 }
 
-function HandCard({ card }: { card: CardView }) {
-  const kind = card.cardType === 'spell' ? '法术' : card.cardType === 'minion' ? '随从' : card.cardType === 'weapon' ? '武器' : '卡牌';
-  return (
-    <article className={card.playable ? 'hand-card' : 'hand-card locked'}>
-      <span className="cost">{card.cost ?? '?'}</span>
-      <h4>{card.name}</h4>
-      <p>{kind}</p>
-      {card.playable ? <em>可打出</em> : <em>费用不足</em>}
-    </article>
-  );
-}
-
-export function BoardView({ board }: { board: BoardSnapshot }) {
-  const powerReady = Boolean(
-    board.hero.heroPower?.available && board.hero.heroPower.cost <= board.mana.available
-  );
+export function BoardView({
+  board,
+  onInspect
+}: {
+  board: BoardSnapshot;
+  onInspect: (cardId: string) => void;
+}) {
+  const powerReady = Boolean(board.hero.heroPower?.available && board.hero.heroPower.cost <= board.mana.available);
+  const mid = (board.hand.length - 1) / 2;
   return (
     <div className="board-col">
-      <section className="felt">
-        {board.inGame ? (
-          <>
-            <header className="felt-head">
-              <p className="eyebrow">对手</p>
-              <div className="pills">
-                {board.secrets.opponent > 0 ? <span>奥秘 {board.secrets.opponent}</span> : null}
-                <span>手牌 {board.opponentHandCount}</span>
+      <section className="playmat">
+        <div className="felt">
+          {board.inGame ? (
+            <>
+              <div className="lane">
+                <div className="lane-main">
+                  <div className="lane-tools">
+                    {board.secrets.opponent > 0 ? <span className="secret-orb">奥秘 {board.secrets.opponent}</span> : <span />}
+                    <Backs count={board.opponentHandCount} />
+                  </div>
+                  <div className="token-row">
+                    {board.opponentBoard.length === 0 ? <p className="empty-row">对面没有随从</p> : null}
+                    {board.opponentBoard.map((minion) => (
+                      <MinionToken key={minion.entityId} {...minion} onInspect={onInspect} />
+                    ))}
+                  </div>
+                </div>
+                <HeroMedal hero={board.opponent} />
               </div>
-            </header>
-            <HeroPlate hero={board.opponent} />
-            <div className="minion-row">
-              {board.opponentBoard.length === 0 ? <p className="empty-row">对面没有随从</p> : null}
-              {board.opponentBoard.map((minion) => (
-                <MinionCard key={minion.entityId} minion={minion} />
-              ))}
-            </div>
-            <div className="felt-split">
-              <span>回合 {board.turn || '—'}</span>
-              <span>{board.ourTurn ? '我方回合' : '对手回合'} · {board.stepLabel}</span>
-              <Mana available={board.mana.available} max={board.mana.max} />
-            </div>
-            <div className="minion-row ours">
-              {board.board.length === 0 ? <p className="empty-row">我方没有随从</p> : null}
-              {board.board.map((minion) => (
-                <MinionCard key={minion.entityId} minion={minion} />
-              ))}
-            </div>
-            <HeroPlate hero={board.hero} powerReady={powerReady} />
-          </>
-        ) : (
-          <div className="felt-empty">
-            <span className="seal big">炉</span>
-            <h2>还没有对局</h2>
-            <p>{board.note}</p>
-          </div>
-        )}
-      </section>
 
-      <section className="panel">
-        <header className="panel-head">
-          <h2>我方手牌</h2>
-          <span>{board.hand.length} 张</span>
-        </header>
-        {board.hand.length === 0 ? (
-          <p className="quiet-copy">手牌还是空的。演示模式或一局进行中的 Power.log 会把可见卡牌填到这里。</p>
-        ) : (
-          <div className="hand-row">
-            {board.hand.map((card) => (
-              <HandCard key={card.entityId} card={card} />
+              <div className="midbar">
+                <span>回合 {board.turn || '—'}</span>
+                <span>{board.ourTurn ? '我方回合' : '对手回合'} · {board.stepLabel}</span>
+                <Mana available={board.mana.available} max={board.mana.max} />
+              </div>
+
+              <div className="lane friendly">
+                <div className="token-row">
+                  {board.board.length === 0 ? <p className="empty-row">我方没有随从</p> : null}
+                  {board.board.map((minion) => (
+                    <MinionToken key={minion.entityId} {...minion} onInspect={onInspect} />
+                  ))}
+                </div>
+                <HeroMedal hero={board.hero} powerReady={powerReady} />
+              </div>
+            </>
+          ) : (
+            <div className="felt-empty">
+              <span className="seal big">炉</span>
+              <h2>还没有对局</h2>
+              <p>{board.note}</p>
+            </div>
+          )}
+
+          <div className="hand-fan">
+            {board.hand.length === 0 ? <p className="empty-row">手牌为空</p> : null}
+            {board.hand.map((card, index) => (
+              <HandRender
+                key={card.entityId}
+                cardId={card.cardId}
+                name={card.name}
+                playable={card.playable}
+                tilt={(index - mid) * 3.5}
+                onInspect={onInspect}
+              />
             ))}
           </div>
-        )}
+        </div>
       </section>
 
-      <section className="panel">
-        <header className="panel-head">
-          <h2>候选动作</h2>
-          <span>{board.legalActions.length}</span>
-        </header>
-        {board.note ? <p className="quiet-copy">{board.note}</p> : null}
-        {board.legalActions.length > 0 ? (
-          <ul className="action-list">
+      {board.legalActions.length > 0 || board.note ? (
+        <section className="plaque">
+          <header>
+            <h2>候选动作</h2>
+            <span>{board.legalActions.length}</span>
+          </header>
+          {board.note ? <p>{board.note}</p> : null}
+          <ul>
             {board.legalActions.map((action) => (
               <li key={action.id}>{action.label}</li>
             ))}
           </ul>
-        ) : null}
-        <p className="fine">这些动作是启发式估计，只用来提示模型。点它们不会操作炉石。</p>
-      </section>
+        </section>
+      ) : null}
     </div>
   );
 }

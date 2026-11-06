@@ -13,6 +13,11 @@ const api = {
     ipcRenderer.on('ui:openSettings', channel);
     return () => ipcRenderer.removeListener('ui:openSettings', channel);
   },
+  onInspect: (listener: (cardId: string) => void): (() => void) => {
+    const channel = (_event: unknown, cardId: string): void => listener(cardId);
+    ipcRenderer.on('ui:inspect', channel);
+    return () => ipcRenderer.removeListener('ui:inspect', channel);
+  },
   saveSettings: (settings: Settings): Promise<ViewState> => ipcRenderer.invoke('settings:save', settings),
   analyze: (): Promise<ViewState> => ipcRenderer.invoke('analyze'),
   chooseLog: (): Promise<ViewState> => ipcRenderer.invoke('log:choose'),

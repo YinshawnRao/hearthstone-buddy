@@ -20,11 +20,11 @@ let coach: CoachApp | null = null;
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
-    width: 1280,
-    height: 840,
-    minWidth: 1080,
-    minHeight: 700,
-    backgroundColor: '#12100e',
+    width: 1440,
+    height: 920,
+    minWidth: 1180,
+    minHeight: 760,
+    backgroundColor: '#100c09',
     title: 'hs-coach',
     autoHideMenuBar: true,
     show: false,
@@ -50,14 +50,17 @@ async function captureShots(win: BrowserWindow, coachApp: CoachApp): Promise<voi
   const dir = process.env.HS_COACH_SCREENSHOT;
   if (!dir) return;
   if (process.env.HS_COACH_MOCK_LLM === '1') await coachApp.analyze();
-  await new Promise((resolve) => setTimeout(resolve, 900));
+  await new Promise((resolve) => setTimeout(resolve, 1500));
   fs.mkdirSync(dir, { recursive: true });
-  const board = await win.capturePage();
-  fs.writeFileSync(path.join(dir, 'board.png'), board.toPNG());
+  fs.writeFileSync(path.join(dir, 'board.png'), (await win.capturePage()).toPNG());
+  win.webContents.send('ui:inspect', 'CS2_033');
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  fs.writeFileSync(path.join(dir, 'closeup.png'), (await win.capturePage()).toPNG());
+  win.webContents.send('ui:inspect', '');
+  await new Promise((resolve) => setTimeout(resolve, 250));
   win.webContents.send('ui:openSettings');
   await new Promise((resolve) => setTimeout(resolve, 700));
-  const settings = await win.capturePage();
-  fs.writeFileSync(path.join(dir, 'settings.png'), settings.toPNG());
+  fs.writeFileSync(path.join(dir, 'settings.png'), (await win.capturePage()).toPNG());
   app.quit();
 }
 
