@@ -379,6 +379,8 @@ img { display: block; max-width: 100%; }
 .lead, .fine, .inspect-text { line-height: 1.55; }
 .advice .fine, .advice .lead { color: #5c4128; }
 .lead.warn { color: #8a3a22; }
+.warn-list { margin: 0; padding-left: 18px; color: #6a3a22; font-size: 13px; }
+.warn-list li { margin: 3px 0; }
 .steps { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
 .steps li { display: grid; grid-template-columns: 28px 1fr; gap: 8px; }
 .steps span {

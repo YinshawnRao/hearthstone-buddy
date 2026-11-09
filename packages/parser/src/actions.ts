@@ -1,17 +1,23 @@
 import { TARGETED_SPELLS } from './cards.js';
 import type { BoardSnapshot, HeroView, LegalAction, MinionView } from './types.js';
 
+export const BOARD_LIMIT = 7;
+
+type RulesBoard = Omit<BoardSnapshot, 'assessment'>;
+
 export interface ActionContext {
   rushOnly: Set<number>;
   heroCanAttack: boolean;
 }
 
-function livingMinions(board: BoardSnapshot): MinionView[] {
-  return board.opponentBoard.filter((minion) => !minion.stealth && !minion.immune && minion.health > 0);
+function livingMinions(board: RulesBoard): MinionView[] {
+  return board.opponentBoard.filter(
+    (minion) => !minion.stealth && !minion.immune && (minion.health == null || minion.health > 0)
+  );
 }
 
 /** Taunt only forces attacks. Spells and targeted hero powers can still pick other characters. */
-function attackTargets(board: BoardSnapshot, allowFace: boolean): { id: number; name: string }[] {
+function attackTargets(board: RulesBoard, allowFace: boolean): { id: number; name: string }[] {
   const living = livingMinions(board);
   const taunts = living.filter((minion) => minion.taunt);
   const pool = taunts.length > 0 ? taunts : living;
@@ -23,7 +29,7 @@ function attackTargets(board: BoardSnapshot, allowFace: boolean): { id: number; 
   return list;
 }
 
-function spellTargets(board: BoardSnapshot): { id: number; name: string }[] {
+function spellTargets(board: RulesBoard): { id: number; name: string }[] {
   const list = livingMinions(board).map((minion) => ({ id: minion.entityId, name: minion.name }));
   if (!board.opponent.immune && board.opponent.entityId) {
     list.push({ id: board.opponent.entityId, name: board.opponent.name });
@@ -31,7 +37,7 @@ function spellTargets(board: BoardSnapshot): { id: number; name: string }[] {
   return list;
 }
 
-function attackActions(attackerId: number, attackerName: string, board: BoardSnapshot, allowFace: boolean): LegalAction[] {
+function attackActions(attackerId: number, attackerName: string, board: RulesBoard, allowFace: boolean): LegalAction[] {
   return attackTargets(board, allowFace).map((target) => ({
     id: `atk-${attackerId}-t-${target.id}`,
     type: 'attack' as const,
@@ -39,10 +45,10 @@ function attackActions(attackerId: number, attackerName: string, board: BoardSna
   }));
 }
 
-function heroPowerActions(board: BoardSnapshot, hero: HeroView): LegalAction[] {
+function heroPowerActions(board: RulesBoard, hero: HeroView): LegalAction[] {
   const power = hero.heroPower;
   if (!power?.available) return [];
-  if (power.cost > board.mana.available) return [];
+  if (power.cost == null || board.mana.available == null || power.cost > board.mana.available) return [];
   if (!power.targeted) {
     return [{ id: 'hp', type: 'hero_power', label: `英雄技能 ${power.name}` }];
   }
@@ -53,11 +59,13 @@ function heroPowerActions(board: BoardSnapshot, hero: HeroView): LegalAction[] {
   }));
 }
 
-export function legalActions(board: BoardSnapshot, ctx: ActionContext): LegalAction[] {
+export function legalActions(board: RulesBoard, ctx: ActionContext): LegalAction[] {
   const actions: LegalAction[] = [];
+  const boardFull = board.board.length >= BOARD_LIMIT;
 
   for (const card of board.hand) {
     if (!card.playable) continue;
+    if (card.cardType === 'minion' && boardFull) continue;
     const targeted = card.cardType === 'spell' && card.cardId != null && TARGETED_SPELLS.has(card.cardId);
     if (!targeted) {
       actions.push({

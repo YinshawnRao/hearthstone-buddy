@@ -71,8 +71,8 @@ export function MinionToken({
 }: {
   cardId?: string;
   name: string;
-  attack: number;
-  health: number;
+  attack: number | null;
+  health: number | null;
   keywords: string[];
   taunt: boolean;
   divineShield: boolean;
@@ -90,8 +90,8 @@ export function MinionToken({
       </span>
       <span className="token-name">{name}</span>
       {canAttack ? <em className="token-flag">可攻击</em> : null}
-      <b className="gem atk">{attack}</b>
-      <b className="gem hp">{health}</b>
+      <b className="gem atk">{attack ?? '?'}</b>
+      <b className="gem hp">{health ?? '?'}</b>
     </button>
   );
 }
@@ -101,12 +101,14 @@ export function HandRender({
   name,
   playable,
   tilt,
+  lockLabel,
   onInspect
 }: {
   cardId?: string;
   name: string;
   playable: boolean;
   tilt: number;
+  lockLabel?: string;
   onInspect?: (cardId: string) => void;
 }) {
   return (
@@ -117,7 +119,7 @@ export function HandRender({
       onClick={() => cardId && onInspect?.(cardId)}
     >
       <CardRender cardId={cardId} name={name} />
-      {!playable ? <span className="lock-note">费用不足</span> : null}
+      {!playable ? <span className="lock-note">{lockLabel ?? '现在不能打出'}</span> : null}
     </button>
   );
 }

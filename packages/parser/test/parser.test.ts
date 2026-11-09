@@ -79,11 +79,12 @@ test('numeric GameTag ids are accepted', () => {
     '    tag=47 value=4',
     '    tag=45 value=5',
     '    tag=263 value=1',
-    '    tag=43 value=0'
+    '    tag=43 value=0',
+    '    tag=297 value=0'
   ];
-  const text = lines
+  const text = `${lines
     .map((body, index) => `D 12:00:00.${String(index).padStart(7, '0')} GameState.DebugPrintPower() - ${body}`)
-    .join('\n');
+    .join('\n')}\n`;
   const board = parsePowerLog(text);
   assert.equal(board.turn, 3);
   assert.equal(board.step, 'MAIN_ACTION');

@@ -1,8 +1,9 @@
-import type { Advice } from '@hs-coach/parser';
+import type { Advice, BoardSnapshot } from '@hs-coach/parser';
 import type { AppStatus } from '../../../shared/types';
 
 export function AdvicePanel({
   advice,
+  board,
   status,
   inGame,
   busy,
@@ -10,6 +11,7 @@ export function AdvicePanel({
   onOpenSettings
 }: {
   advice: Advice | null;
+  board: BoardSnapshot;
   status: AppStatus;
   inGame: boolean;
   busy: boolean;
@@ -17,11 +19,12 @@ export function AdvicePanel({
   onOpenSettings: () => void;
 }) {
   const unconfigured = status.llm === 'unconfigured';
+  const local = advice?.source === 'offline';
   return (
     <aside className="advice">
       <div className="scroll-cap" />
-      <p className="eyebrow">军师笺</p>
-      <h2>{advice?.summary ?? (unconfigured ? '先接上一个模型' : inGame ? '局面已经就绪' : '等待对局')}</h2>
+      <p className="eyebrow">军师笺 · 规则 {board.assessment.knowledgeVersion}</p>
+      <h2>{advice?.summary ?? (unconfigured ? '可以先做本地分析' : inGame ? '局面已经就绪' : '等待对局')}</h2>
       {advice && !advice.fallback && advice.steps.length > 0 ? (
         <ol className="steps">
           {advice.steps.map((step, index) => (
@@ -35,22 +38,41 @@ export function AdvicePanel({
         <p className="lead">
           {advice?.detail ||
             (unconfigured
-              ? '演示场面可以先看。要出建议，请在设置里填写 OpenAI 兼容接口，或改用本机 Ollama。密钥只留在这台电脑上。'
+              ? '没有模型也会用本地规则和卡牌目录做一版建议。接上模型后，仍只允许合法动作编号。'
               : inGame
-                ? '把当前场面和候选动作发给模型。模型只返回文字建议，不会替你出牌。'
+                ? '分析会带上规则范围、卡面文字和通用启发式。模型不能编造对手手牌。'
                 : '打开演示局面，或等 Power.log 里出现一局进行中的对战。')}
         </p>
       )}
+      {advice?.alternatives && advice.alternatives.length > 0 ? (
+        <div>
+          <p className="eyebrow">另一条</p>
+          {advice.alternatives.map((step) => (
+            <p key={step.text} className="lead">{step.text}</p>
+          ))}
+        </div>
+      ) : null}
+      {advice?.uncertainty ? (
+        <p className="lead">{advice.uncertainty}</p>
+      ) : null}
+      {board.assessment.warnings.length > 0 && !advice ? (
+        <ul className="warn-list">
+          {board.assessment.warnings.slice(0, 3).map((warning) => (
+            <li key={warning}>{warning}</li>
+          ))}
+        </ul>
+      ) : null}
       {advice && !advice.fallback && advice.risk ? (
         <div className="risk">
           <p className="eyebrow">风险</p>
           <p>{advice.risk}</p>
         </div>
       ) : null}
-      {advice?.fallback && advice.detail && advice.summary !== '先接上一个模型' ? <p className="lead warn">{advice.detail}</p> : null}
+      {advice?.fallback && advice.detail ? <p className="lead warn">{advice.detail}</p> : null}
+      {local ? <p className="fine">{advice?.detail}</p> : null}
       <div className="advice-actions">
-        <button type="button" className="primary" disabled={busy || !inGame || unconfigured} onClick={onAnalyze}>
-          {busy ? '分析中…' : advice && !advice.fallback ? '重新分析' : '分析局面'}
+        <button type="button" className="primary" disabled={busy || !inGame} onClick={onAnalyze}>
+          {busy ? '分析中…' : advice && !advice.fallback ? '重新分析' : unconfigured ? '本地分析' : '分析局面'}
         </button>
         {unconfigured ? (
           <button type="button" className="ghost" onClick={onOpenSettings}>

@@ -1,17 +1,17 @@
 import type { BoardSnapshot, HeroView } from '@hs-coach/parser';
 import { ArtWindow, HandRender, MinionToken, Portrait } from './HsCard';
 
-function Mana({ available, max }: { available: number; max: number }) {
-  const total = Math.min(10, Math.max(max, 0));
+function Mana({ available, max }: { available: number | null; max: number | null }) {
+  const total = Math.min(10, Math.max(max ?? 0, 0));
   return (
     <div className="mana" aria-label={`法力 ${available} / ${max}`}>
       <b>
-        {available}
-        <span>/{max}</span>
+        {available ?? '?'}
+        <span>/{max ?? '?'}</span>
       </b>
       <span className="crystals">
         {Array.from({ length: total }, (_, index) => (
-          <i key={index} className={index < available ? 'on' : ''} />
+          <i key={index} className={available != null && index < available ? 'on' : ''} />
         ))}
       </span>
     </div>
@@ -26,7 +26,7 @@ function HeroMedal({ hero, powerReady }: { hero: HeroView; powerReady?: boolean 
           <Portrait cardId={hero.cardId} name={hero.name} />
         </div>
         {hero.armor > 0 ? <span className="armor-orb">{hero.armor}</span> : null}
-        <span className="health-orb">{hero.health}</span>
+        <span className="health-orb">{hero.health ?? '?'}</span>
         {hero.heroPower ? (
           <div className={powerReady ? 'hp-orb' : 'hp-orb dim'} title={`${hero.heroPower.name} · ${hero.heroPower.cost} 费`}>
             <ArtWindow cardId={hero.cardId ? `${hero.cardId}bp` : undefined} name={hero.heroPower.name} />
@@ -66,7 +66,12 @@ export function BoardView({
   board: BoardSnapshot;
   onInspect: (cardId: string) => void;
 }) {
-  const powerReady = Boolean(board.hero.heroPower?.available && board.hero.heroPower.cost <= board.mana.available);
+  const powerReady = Boolean(
+    board.hero.heroPower?.available &&
+      board.hero.heroPower.cost != null &&
+      board.mana.available != null &&
+      board.hero.heroPower.cost <= board.mana.available
+  );
   const mid = (board.hand.length - 1) / 2;
   return (
     <div className="board-col">
@@ -122,6 +127,7 @@ export function BoardView({
                 cardId={card.cardId}
                 name={card.name}
                 playable={card.playable}
+                lockLabel={card.unplayableReason}
                 tilt={(index - mid) * 3.5}
                 onInspect={onInspect}
               />

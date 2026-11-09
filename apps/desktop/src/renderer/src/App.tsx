@@ -124,6 +124,7 @@ export function App() {
         <BoardView board={board} onInspect={setInspect} />
         <AdvicePanel
           advice={advice}
+          board={board}
           status={status}
           inGame={board.inGame}
           busy={status.llm === 'thinking'}

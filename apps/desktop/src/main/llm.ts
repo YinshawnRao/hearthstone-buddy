@@ -1,20 +1,23 @@
-import { fallbackAdvice, parseAdvice, toModelInput, type Advice, type BoardSnapshot } from '@hs-coach/parser';
+import {
+  adviseOffline,
+  buildAnalysisPayload,
+  buildSystemPrompt,
+  fallbackAdvice,
+  KNOWLEDGE_VERSION,
+  parseAdvice,
+  reviewModelAdvice,
+  type Advice,
+  type BoardSnapshot,
+  type CatalogCard,
+  type CardSourceInfo
+} from '@hs-coach/parser';
+import fs from 'node:fs';
+import path from 'node:path';
 import type { Settings } from '../shared/types';
 import { isConfigured, isLocalBaseUrl } from './config';
 
 const TIMEOUT_MS = 30_000;
-
-const SYSTEM_PROMPT = `你是炉石传说的对局参谋。你只给出建议，绝不代替玩家点击、拖拽或结束回合。
-你会收到当前场面 JSON，其中 legal_actions 是目前估计可执行的动作。
-只输出一个 JSON 对象，不要使用 Markdown。格式必须是：
-{"summary":"一句话结论","steps":[{"actionId":"legal_actions 里的 id，对不上就用 null","text":"这一步做什么"}],"risk":"主要风险"}
-要求：
-- 使用简体中文。
-- steps 最多 4 步，按建议的出手顺序。
-- 能对应到 legal_actions 时必须填写 actionId。
-- 如果 our_turn 为 false，或 legal_actions 为空，说明为什么现在不该操作。
-- 不要编造场面 JSON 里没有的随从、手牌或奥秘。
-- 嘲讽只强制攻击，法术和指向性英雄技能不一定要打在嘲讽上。`;
+const SYSTEM_PROMPT = buildSystemPrompt();
 
 class HttpError extends Error {
   constructor(
@@ -118,7 +121,7 @@ function describeError(error: unknown, settings: Settings): string {
   if (error instanceof Error) {
     const message = scrub(error.message, settings);
     if (/缺少 summary|缺少 steps|缺少 risk|JSON|Unexpected token/i.test(message)) {
-      return '模型返回的内容不是约定的 JSON（需要 summary、steps、risk）。可以再分析一次，或换一个更遵循格式的模型。';
+      return '模型返回的内容不是约定的 JSON（需要 summary、steps、risk，以及可选的 alternatives 和 uncertainty）。';
     }
     if (/fetch failed|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|network|getaddrinfo/i.test(message)) {
       return '连不上这个接口。如果用的是 Ollama，请确认 ollama serve 已启动，地址是 http://127.0.0.1:11434/v1 。';
@@ -181,41 +184,53 @@ async function anthropicComplete(settings: Settings, user: string): Promise<stri
   return anthropicText(data);
 }
 
-function mockAdvice(board: BoardSnapshot): Advice {
-  const id = (exact: string) => board.legalActions.find((action) => action.id === exact)?.id ?? null;
-  return {
-    summary: '先处理嘲讽。火球先别打在有圣盾的石拳上。',
-    steps: [
-      {
-        actionId: id('atk-10-t-30'),
-        text: '用水元素攻击银背族长。嘲讽还剩 1 点生命，但已经压住了这一侧的攻击。'
-      },
-      {
-        actionId: id('play-41-t-30'),
-        text: '寒冰箭可以补掉银背。火球先留着，石拳的圣盾会白白吃掉这一发。'
-      },
-      {
-        actionId: id('end-turn'),
-        text: '奥术智慧先不急。对面的奥秘还没翻开，拆场之前不要打脸。'
-      }
-    ],
-    risk: '银背还活着时，其他攻击都会被嘲讽拦住。奥秘没翻开，直接打英雄可能触发陷阱。',
-    fallback: false
+let cardCache: { cards: CatalogCard[]; source: CardSourceInfo } | null = null;
+
+function readJson(file: string): unknown {
+  return JSON.parse(fs.readFileSync(file, 'utf8')) as unknown;
+}
+
+function loadCards(): { cards: CatalogCard[]; source: CardSourceInfo } {
+  if (cardCache) return cardCache;
+  const candidates = [
+    path.join(__dirname, '../renderer/cards/catalog.json'),
+    path.join(process.cwd(), 'src/renderer/public/cards/catalog.json'),
+    path.join(process.cwd(), 'apps/desktop/src/renderer/public/cards/catalog.json')
+  ];
+  const catalogFile = candidates.find((file) => fs.existsSync(file));
+  const cards = catalogFile ? (readJson(catalogFile) as CatalogCard[]) : [];
+  const sourceFile = catalogFile ? path.join(path.dirname(catalogFile), 'source.json') : '';
+  const meta = sourceFile && fs.existsSync(sourceFile) ? (readJson(sourceFile) as { provider?: string; refreshedAt?: string; count?: number }) : {};
+  cardCache = {
+    cards,
+    source: {
+      provider: meta.provider ?? '未加载',
+      refreshedAt: meta.refreshedAt ?? null,
+      count: meta.count ?? cards.length
+    }
   };
+  return cardCache;
 }
 
 export async function requestAdvice(settings: Settings, board: BoardSnapshot): Promise<Advice> {
-  if (process.env.HS_COACH_MOCK_LLM === '1') return mockAdvice(board);
-  if (!isConfigured(settings)) {
-    return fallbackAdvice('先接上一个模型', setupGuidance(settings));
+  const { cards, source } = loadCards();
+  const offline = !isConfigured(settings) || process.env.HS_COACH_MOCK_LLM === '1';
+  if (offline) {
+    const advice = adviseOffline(board, cards, source);
+    if (!isConfigured(settings) && process.env.HS_COACH_MOCK_LLM !== '1') {
+      advice.detail = `${advice.detail ?? ''} 配置接口后，模型也只能引用这些合法动作。`.trim();
+    }
+    return advice;
   }
-  const payload = JSON.stringify(toModelInput(board));
+  const payload = JSON.stringify(buildAnalysisPayload(board, cards, source));
   try {
     const text =
       settings.provider === 'anthropic'
         ? await anthropicComplete(settings, payload)
         : await openAiComplete(settings, payload, settings.provider === 'openai' && !isLocalBaseUrl(settings.openaiBaseUrl), 'max_tokens');
-    return parseAdvice(text);
+    const reviewed = reviewModelAdvice(parseAdvice(text), new Set(board.legalActions.map((action) => action.id)));
+    reviewed.knowledgeVersion = KNOWLEDGE_VERSION;
+    return reviewed;
   } catch (error) {
     return fallbackAdvice('模型没有返回可用建议', describeError(error, settings));
   }

@@ -1,5 +1,21 @@
 import type { Advice, AdviceStep } from './types.js';
 
+function readSteps(value: unknown): AdviceStep[] {
+  if (!Array.isArray(value)) return [];
+  const steps: AdviceStep[] = [];
+  for (const step of value) {
+    if (!step || typeof step !== 'object') continue;
+    const item = step as Record<string, unknown>;
+    const textValue = typeof item.text === 'string' ? item.text.trim() : '';
+    if (!textValue) continue;
+    steps.push({
+      actionId: typeof item.actionId === 'string' && item.actionId.trim() ? item.actionId.trim() : null,
+      text: textValue
+    });
+  }
+  return steps;
+}
+
 export function parseAdvice(text: string): Advice {
   let raw = text.trim();
   const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(raw);
@@ -15,20 +31,11 @@ export function parseAdvice(text: string): Advice {
   }
   if (!Array.isArray(record.steps)) throw new Error('缺少 steps');
   if (typeof record.risk !== 'string') throw new Error('缺少 risk');
-  const steps: AdviceStep[] = [];
-  for (const step of record.steps) {
-    if (!step || typeof step !== 'object') continue;
-    const item = step as Record<string, unknown>;
-    const textValue = typeof item.text === 'string' ? item.text.trim() : '';
-    if (!textValue) continue;
-    steps.push({
-      actionId: typeof item.actionId === 'string' && item.actionId.trim() ? item.actionId.trim() : null,
-      text: textValue
-    });
-  }
   return {
     summary: record.summary.trim(),
-    steps: steps.slice(0, 6),
+    steps: readSteps(record.steps).slice(0, 4),
+    alternatives: readSteps(record.alternatives).slice(0, 2),
+    uncertainty: typeof record.uncertainty === 'string' ? record.uncertainty.trim() : '',
     risk: record.risk.trim(),
     fallback: false
   };

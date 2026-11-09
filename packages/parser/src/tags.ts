@@ -97,6 +97,10 @@ export function tagNum(entity: { tags: Record<string, string> }, name: string): 
   return Number.isFinite(n) ? n : 0;
 }
 
+export function hasTag(entity: { tags: Record<string, string> }, name: string): boolean {
+  return Object.prototype.hasOwnProperty.call(entity.tags, name) && entity.tags[name] !== '';
+}
+
 export function tagOn(entity: { tags: Record<string, string> }, name: string): boolean {
   return entity.tags[name] === '1';
 }

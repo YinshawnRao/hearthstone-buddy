@@ -60,7 +60,12 @@ export class CoachApp {
         linesParsed: demo ? 0 : this.linesParsed,
         llm: this.llm,
         llmDetail: this.llmDetail,
-        modelLabel: process.env.HS_COACH_MOCK_LLM === '1' ? '样例' : modelLabel(this.settings)
+        modelLabel:
+          this.advice?.source === 'offline'
+            ? `本地规则 ${this.advice.knowledgeVersion ?? ''}`.trim()
+            : process.env.HS_COACH_MOCK_LLM === '1'
+              ? '样例'
+              : modelLabel(this.settings)
       }
     };
   }

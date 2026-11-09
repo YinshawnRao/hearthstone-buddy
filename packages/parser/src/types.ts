@@ -8,7 +8,9 @@ export interface LegalAction {
 
 export interface HeroPowerView {
   name: string;
-  cost: number;
+  cardId?: string;
+  /** Null when the log did not include COST. That is unknown, not zero. */
+  cost: number | null;
   available: boolean;
   targeted: boolean;
 }
@@ -24,9 +26,9 @@ export interface HeroView {
   name: string;
   cardId?: string;
   className: string;
-  health: number;
+  health: number | null;
   armor: number;
-  attack: number;
+  attack: number | null;
   frozen: boolean;
   immune: boolean;
   heroPower: HeroPowerView | null;
@@ -37,9 +39,9 @@ export interface MinionView {
   entityId: number;
   name: string;
   cardId?: string;
-  attack: number;
-  health: number;
-  maxHealth: number;
+  attack: number | null;
+  health: number | null;
+  maxHealth: number | null;
   keywords: string[];
   taunt: boolean;
   divineShield: boolean;
@@ -49,7 +51,11 @@ export interface MinionView {
   rush: boolean;
   charge: boolean;
   windfury: boolean;
+  /** True only when attack count and summoning state are both known and allow an attack. */
   canAttack: boolean;
+  attackAvailability: 'yes' | 'no' | 'unknown';
+  /** Rush on the turn it was played, so it cannot attack the hero. */
+  rushBlocksFace: boolean;
   zonePosition: number;
 }
 
@@ -61,9 +67,10 @@ export interface CardView {
   cardId?: string;
   cost: number | null;
   cardType: HandCardType;
-  attack?: number;
-  health?: number;
+  attack?: number | null;
+  health?: number | null;
   playable: boolean;
+  unplayableReason?: string;
 }
 
 export interface BoardSnapshot {
@@ -73,8 +80,8 @@ export interface BoardSnapshot {
   step: string;
   stepLabel: string;
   ourTurn: boolean;
-  mana: { available: number; max: number; used: number };
-  opponentMana: { available: number; max: number };
+  mana: { available: number | null; max: number | null; used: number | null };
+  opponentMana: { available: number | null; max: number | null };
   hero: HeroView;
   opponent: HeroView;
   board: MinionView[];
@@ -83,20 +90,39 @@ export interface BoardSnapshot {
   opponentHandCount: number;
   secrets: { friendly: number; opponent: number };
   legalActions: LegalAction[];
+  /** What the local rules actually checked. Not a full game engine. */
+  assessment: PositionAssessment;
   note?: string;
+}
+
+export interface PositionAssessment {
+  knowledgeVersion: string;
+  warnings: string[];
+  lethal: {
+    status: 'yes' | 'no' | 'unknown';
+    /** Null when attack stats are missing. Zero means we know face damage is blocked or absent. */
+    faceDamage: number | null;
+    detail: string;
+  };
 }
 
 export interface AdviceStep {
   actionId: string | null;
   text: string;
+  illegal?: boolean;
 }
 
 export interface Advice {
   summary: string;
   steps: AdviceStep[];
+  alternatives?: AdviceStep[];
+  uncertainty?: string;
   risk: string;
   fallback: boolean;
   detail?: string;
+  warnings?: string[];
+  knowledgeVersion?: string;
+  source?: 'offline' | 'model';
 }
 
 export interface RawEntity {

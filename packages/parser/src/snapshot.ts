@@ -1,5 +1,6 @@
 import { cardName } from './cards.js';
-import { tagNum, tagOn } from './tags.js';
+import { hasTag, tagNum, tagOn } from './tags.js';
+import { assessPosition } from './rules.js';
 import type {
   BoardSnapshot,
   CardView,
@@ -42,9 +43,9 @@ function emptyHero(): HeroView {
     entityId: 0,
     name: '未知英雄',
     className: '未知',
-    health: 0,
+    health: null,
     armor: 0,
-    attack: 0,
+    attack: null,
     frozen: false,
     immune: false,
     heroPower: null,
@@ -60,8 +61,8 @@ export function emptyBoard(): BoardSnapshot {
     step: '',
     stepLabel: '未开始',
     ourTurn: false,
-    mana: { available: 0, max: 0, used: 0 },
-    opponentMana: { available: 0, max: 0 },
+    mana: { available: null, max: null, used: null },
+    opponentMana: { available: null, max: null },
     hero: emptyHero(),
     opponent: emptyHero(),
     board: [],
@@ -70,6 +71,24 @@ export function emptyBoard(): BoardSnapshot {
     opponentHandCount: 0,
     secrets: { friendly: 0, opponent: 0 },
     legalActions: [],
+    assessment: assessPosition({
+      source: 'empty',
+      inGame: false,
+      turn: 0,
+      step: '',
+      stepLabel: '未开始',
+      ourTurn: false,
+      mana: { available: null, max: null, used: null },
+      opponentMana: { available: null, max: null },
+      hero: emptyHero(),
+      opponent: emptyHero(),
+      board: [],
+      opponentBoard: [],
+      hand: [],
+      opponentHandCount: 0,
+      secrets: { friendly: 0, opponent: 0 },
+      legalActions: []
+    }),
     note: '还没有进行中的对局。启动炉石并打一局，或打开演示局面。'
   };
 }
@@ -114,11 +133,11 @@ function findHero(game: RawGame, playerId: number, player: RawEntity | undefined
   );
 }
 
-function manaOf(player: RawEntity | undefined): { available: number; max: number; used: number } {
-  if (!player) return { available: 0, max: 0, used: 0 };
+function manaOf(player: RawEntity | undefined): { available: number | null; max: number | null; used: number | null } {
+  if (!player || !hasTag(player, 'RESOURCES')) return { available: null, max: null, used: null };
   const max = tagNum(player, 'RESOURCES');
-  const used = tagNum(player, 'RESOURCES_USED');
-  const temp = tagNum(player, 'TEMP_RESOURCES');
+  const used = hasTag(player, 'RESOURCES_USED') ? tagNum(player, 'RESOURCES_USED') : 0;
+  const temp = hasTag(player, 'TEMP_RESOURCES') ? tagNum(player, 'TEMP_RESOURCES') : 0;
   return { available: Math.max(0, max + temp - used), max, used };
 }
 
@@ -138,26 +157,36 @@ function keywordsOf(entity: RawEntity): string[] {
   return labels.filter(([tag]) => tagOn(entity, tag)).map(([, label]) => label);
 }
 
-function canMinionAttack(entity: RawEntity, actionable: boolean): boolean {
-  if (!actionable) return false;
-  if (tagOn(entity, 'FROZEN') || tagOn(entity, 'CANT_ATTACK') || tagOn(entity, 'DORMANT')) return false;
-  if (tagNum(entity, 'ATK') <= 0) return false;
+function attackAvailability(entity: RawEntity, actionable: boolean): MinionView['attackAvailability'] {
+  if (!actionable) return 'no';
+  if (tagOn(entity, 'FROZEN') || tagOn(entity, 'CANT_ATTACK') || tagOn(entity, 'DORMANT')) return 'no';
+  if (!hasTag(entity, 'ATK')) return 'unknown';
+  if (tagNum(entity, 'ATK') <= 0) return 'no';
+  if (!hasTag(entity, 'NUM_ATTACKS_THIS_TURN')) return 'unknown';
   const used = tagNum(entity, 'NUM_ATTACKS_THIS_TURN');
   const limit = tagOn(entity, 'MEGA_WINDFURY') ? 4 : tagOn(entity, 'WINDFURY') ? 2 : 1;
-  if (used >= limit) return false;
+  if (used >= limit) return 'no';
+  const sicknessKnown = hasTag(entity, 'EXHAUSTED') || hasTag(entity, 'NUM_TURNS_IN_PLAY') || tagOn(entity, 'CHARGE') || tagOn(entity, 'RUSH');
+  if (!sicknessKnown) return 'unknown';
   const summoningSickness = tagOn(entity, 'EXHAUSTED') && used === 0;
-  if (summoningSickness && !tagOn(entity, 'CHARGE') && !tagOn(entity, 'RUSH')) return false;
-  return true;
+  if (summoningSickness && !tagOn(entity, 'CHARGE') && !tagOn(entity, 'RUSH')) return 'no';
+  return 'yes';
 }
 
 function toMinion(entity: RawEntity, actionable: boolean): MinionView {
-  const maxHealth = tagNum(entity, 'HEALTH');
+  const healthKnown = hasTag(entity, 'HEALTH');
+  const maxHealth = healthKnown ? tagNum(entity, 'HEALTH') : null;
+  const damage = hasTag(entity, 'DAMAGE') ? tagNum(entity, 'DAMAGE') : 0;
+  const availability = attackAvailability(entity, actionable);
+  const rush = tagOn(entity, 'RUSH');
+  const charge = tagOn(entity, 'CHARGE');
+  const turnsKnown = hasTag(entity, 'NUM_TURNS_IN_PLAY');
   return {
     entityId: entity.id,
     name: cardName(entity.cardId, entity.name),
     cardId: entity.cardId,
-    attack: tagNum(entity, 'ATK'),
-    health: Math.max(0, maxHealth - tagNum(entity, 'DAMAGE')),
+    attack: hasTag(entity, 'ATK') ? tagNum(entity, 'ATK') : null,
+    health: maxHealth == null ? null : Math.max(0, maxHealth - damage),
     maxHealth,
     keywords: keywordsOf(entity),
     taunt: tagOn(entity, 'TAUNT'),
@@ -165,10 +194,12 @@ function toMinion(entity: RawEntity, actionable: boolean): MinionView {
     stealth: tagOn(entity, 'STEALTH'),
     frozen: tagOn(entity, 'FROZEN'),
     immune: tagOn(entity, 'IMMUNE'),
-    rush: tagOn(entity, 'RUSH'),
-    charge: tagOn(entity, 'CHARGE'),
+    rush,
+    charge,
     windfury: tagOn(entity, 'WINDFURY'),
-    canAttack: canMinionAttack(entity, actionable),
+    canAttack: availability === 'yes',
+    attackAvailability: availability,
+    rushBlocksFace: rush && !charge && (!turnsKnown || tagNum(entity, 'NUM_TURNS_IN_PLAY') === 0),
     zonePosition: tagNum(entity, 'ZONE_POSITION')
   };
 }
@@ -188,17 +219,20 @@ function toHero(
 ): HeroView {
   if (!entity) return emptyHero();
   const classKey = entity.tags.CLASS ?? '';
-  const maxHealth = tagNum(entity, 'HEALTH');
-  const attack = tagNum(entity, 'ATK');
+  const healthKnown = hasTag(entity, 'HEALTH');
+  const maxHealth = healthKnown ? tagNum(entity, 'HEALTH') : null;
+  const attack = hasTag(entity, 'ATK') ? tagNum(entity, 'ATK') : null;
 
   let heroPower: HeroView['heroPower'] = null;
   if (power) {
-    const cost = power.tags.COST != null ? tagNum(power, 'COST') : 2;
+    const costKnown = hasTag(power, 'COST');
+    const usedKnown = hasTag(power, 'EXHAUSTED') || hasTag(power, 'HEROPOWER_ACTIVATIONS_THIS_TURN');
     const usedUp = tagOn(power, 'EXHAUSTED') || tagNum(power, 'HEROPOWER_ACTIVATIONS_THIS_TURN') >= 1;
     heroPower = {
       name: cardName(power.cardId, '英雄技能'),
-      cost,
-      available: actionable && !usedUp,
+      cardId: power.cardId,
+      cost: costKnown ? tagNum(power, 'COST') : null,
+      available: actionable && costKnown && usedKnown && !usedUp,
       targeted: classKey === 'MAGE' || classKey === 'PRIEST'
     };
   }
@@ -222,8 +256,8 @@ function toHero(
     name: cardName(entity.cardId, entity.name),
     cardId: entity.cardId,
     className: CLASS_ZH[classKey] ?? (classKey || '未知'),
-    health: Math.max(0, maxHealth - tagNum(entity, 'DAMAGE')),
-    armor: tagNum(entity, 'ARMOR'),
+    health: maxHealth == null ? null : Math.max(0, maxHealth - (hasTag(entity, 'DAMAGE') ? tagNum(entity, 'DAMAGE') : 0)),
+    armor: hasTag(entity, 'ARMOR') ? tagNum(entity, 'ARMOR') : 0,
     attack,
     frozen: tagOn(entity, 'FROZEN'),
     immune: tagOn(entity, 'IMMUNE'),
@@ -272,15 +306,23 @@ export function snapshotFromRaw(game: RawGame, source: BoardSnapshot['source']):
   const hand: CardView[] = game.entities
     .filter((entity) => entity.tags.ZONE === 'HAND' && entity.tags.CONTROLLER === String(friendly))
     .map((entity) => {
-      const cost = entity.tags.COST != null ? tagNum(entity, 'COST') : null;
+      const cost = hasTag(entity, 'COST') ? tagNum(entity, 'COST') : null;
       const type = cardTypeOf(entity);
+      const boardFull = type === 'minion' && board.length >= 7;
+      let unplayableReason: string | undefined;
+      if (!actionable) unplayableReason = '还不能行动';
+      else if (cost == null) unplayableReason = '费用未知';
+      else if (mana.available == null) unplayableReason = '法力未知';
+      else if (cost > mana.available) unplayableReason = '费用不足';
+      else if (boardFull) unplayableReason = '场面已满';
       const view: CardView = {
         entityId: entity.id,
         name: cardName(entity.cardId, entity.name),
         cardId: entity.cardId,
         cost,
         cardType: type,
-        playable: actionable && cost != null && cost <= mana.available
+        playable: unplayableReason == null,
+        unplayableReason
       };
       if (type === 'minion') {
         view.attack = tagNum(entity, 'ATK');
@@ -324,15 +366,18 @@ export function snapshotFromRaw(game: RawGame, source: BoardSnapshot['source']):
       .map((entity) => entity.id)
   );
 
+  const heroAttackKnown =
+    heroEnt != null && hasTag(heroEnt, 'ATK') && hasTag(heroEnt, 'NUM_ATTACKS_THIS_TURN') && (hasTag(heroEnt, 'EXHAUSTED') || hasTag(heroEnt, 'NUM_TURNS_IN_PLAY'));
   const heroCanAttack =
     actionable &&
-    hero.attack > 0 &&
+    heroAttackKnown &&
+    (hero.attack ?? 0) > 0 &&
     !hero.frozen &&
     heroEnt != null &&
     tagNum(heroEnt, 'NUM_ATTACKS_THIS_TURN') < (tagOn(heroEnt, 'WINDFURY') ? 2 : 1) &&
     !(tagOn(heroEnt, 'EXHAUSTED') && tagNum(heroEnt, 'NUM_ATTACKS_THIS_TURN') === 0);
 
-  const draft: BoardSnapshot = {
+  const draft: Omit<BoardSnapshot, 'assessment'> = {
     source,
     inGame,
     turn,
@@ -352,12 +397,12 @@ export function snapshotFromRaw(game: RawGame, source: BoardSnapshot['source']):
     note
   };
 
-  if (actionable && inGame) {
+  if (actionable && inGame && mana.available != null) {
     draft.legalActions = legalActions(draft, { rushOnly, heroCanAttack });
     draft.note = undefined;
   }
 
-  return draft;
+  return { ...draft, assessment: assessPosition(draft) };
 }
 
 export function boardKey(board: BoardSnapshot): string {

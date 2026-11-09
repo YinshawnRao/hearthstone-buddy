@@ -5,6 +5,17 @@ import type { BoardSnapshot } from './types.js';
 
 export { PowerParser } from './parser.js';
 export { parseAdvice, fallbackAdvice } from './advice.js';
+export { KNOWLEDGE_VERSION, RULES_MANIFEST, assessPosition } from './rules.js';
+export {
+  adviseOffline,
+  buildAnalysisPayload,
+  buildSystemPrompt,
+  compareCard,
+  indexCatalog,
+  loadArchetypePrinciples,
+  normalizeCardText,
+  reviewModelAdvice
+} from './decision.js';
 export { defaultLogRoots, findNewestPowerLog, resolvePowerLog } from './logpath.js';
 export { SAMPLE_POWER_LOG } from './sampleLog.js';
 export { boardKey, emptyBoard, snapshotFromRaw, toModelInput } from './snapshot.js';
@@ -18,8 +29,10 @@ export type {
   CardView,
   HeroView,
   LegalAction,
-  MinionView
+  MinionView,
+  PositionAssessment
 } from './types.js';
+export type { CatalogCard, CardSourceInfo } from './decision.js';
 
 export function parsePowerLog(text: string, source: BoardSnapshot['source'] = 'log'): BoardSnapshot {
   const parser = new PowerParser();

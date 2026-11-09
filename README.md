@@ -168,6 +168,32 @@ npm run cards:refresh
 
 Hearthstone is a trademark of Blizzard Entertainment. This project is unofficial and is not affiliated with Blizzard.
 
+## 决策基础 / Decision foundation
+
+分析走的是本地规则，不是每次去搜攻略。模型只在你配置了接口之后才会被调用，而且只能引用当前合法动作编号。
+
+Analysis goes through local rules. A model is called only after an endpoint is configured, and it may cite only current legal action ids.
+
+| 内容 | 位置 |
+| --- | --- |
+| 规则版本、已检查范围、明确没模拟的机制 | `packages/parser/knowledge/manifest.json` |
+| 通用启发式（节奏、场面、资源、斩杀、生存、铺场、顺序） | `packages/parser/knowledge/general.json` |
+| 不在可收集目录里的英雄技能 | `packages/parser/knowledge/supplements.json` |
+| 卡牌印刷值 | `apps/desktop/src/renderer/public/cards/catalog.json` |
+| 可选卡组/原型 | `packages/parser/knowledge/archetypes/<id>.json`，只有代码显式传入 id 才读取 |
+
+`general.json` 里的原则不是必须执行的规则，也不是当前环境的对阵表。没有对应的 archetype 文件时，不会编造卡组指南。
+
+已检查：我方主要阶段、日志里的费用和法力、攻击次数/冻结/冲锋/突袭/风怒/召唤失调、嘲讽只限制攻击、潜行和免疫、场面 7 个随从上限、英雄技能费用和使用状态。缺标签时保持未知，不会当成 0。
+
+没有模拟：发现、随机、抉择、连击、法强、亡语、光环、战吼、奥秘效果、对手手牌内容、牌库和后续抽牌。斩杀只比较当前能打到脸上的攻击力与英雄剩余生命。
+
+印刷费用/攻防和日志里的当前数值会一起交给分析。减费或增益不会被卡面数值盖掉。目录里找不到的 CardID 会标明缺失。
+
+给模型的系统提示由 `buildSystemPrompt()` 从上述文件生成。它要求只看这次 JSON，不搜索网页，不编造对手手牌，并且 `actionId` 必须来自 `legal_actions`。非法编号会被拒绝。
+
+没有密钥时，点「本地分析」会直接给出这套离线建议。
+
 ## 架构 / Architecture
 
 ```
