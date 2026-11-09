@@ -2,7 +2,7 @@
   "name": "hs-coach",
   "private": true,
   "version": "0.1.0",
-  "description": "Hearthstone decision coach. Reads Power.log and recommends a play. Does not automate the game.",
+  "description": "炉石 Buddy / Hearthstone Buddy. A desktop companion for Hearthstone decisions. Does not control the game.",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -11,7 +11,7 @@
     "dev": "npm run dev -w @hs-coach/desktop",
     "build": "npm run build -w @hs-coach/desktop",
     "start": "npm run start -w @hs-coach/desktop",
-    "test": "npm run test -w @hs-coach/parser",
+    "test": "npm run test -w @hs-coach/parser && npm run test -w @hs-coach/desktop",
     "typecheck": "npm run typecheck -w @hs-coach/parser && npm run typecheck -w @hs-coach/desktop",
     "cards:refresh": "node scripts/refresh-cards.mjs"
   },

@@ -1,12 +1,34 @@
-# hs-coach
+# 炉石 Buddy
 
-炉石传说**对局参谋**：读取 Power.log，整理场面，请模型给出下一步建议。
+炉石 Buddy（Hearthstone Buddy）是桌面陪伴：原创角色「澄」和你一起看炉石，用气泡说出下一手。她不操作鼠标，不注入游戏。
+
+仓库地址目前仍是 `https://github.com/YinshawnRao/hs-coach`。计划中的 GitHub 名称是 `hearthstone-buddy`，这次没有改远程仓库。还依赖旧名字的地方：远程仓库 slug、npm 包名 `@hs-coach/desktop` 和 `@hs-coach/parser`。窗口标题、配置目录和产品文档已经使用 Buddy。旧的 `%APPDATA%\\hs-coach\\config.json`（以及 macOS / Linux 上对应的 hs-coach 用户目录）会在新的 `hearthstone-buddy` 配置不存在时被读入，密钥不会写进仓库。
+
+当前切片：启动器、Windows 启动交接、透明陪伴窗口、本地规则分析和可选语音适配。没有做出可下载的已签名安装包。`apps/desktop/electron-builder.yml` 只是未签名 Windows 配置，这次没有在 Windows 上打过包，也没有在真机上验证全屏覆盖。
+
+产品计划在 `docs/product/`。澄的画和授权在 `docs/characters/cheng.md`。
+
+炉石传说**对局参谋**仍然读取 Power.log，整理场面，再给出下一步建议。
 
 Hearthstone decision coach. It reads the same Power.log Hearthstone Deck Tracker and Firestone use, builds a board, and asks a model what to play next.
 
 这是桌面端的分析工具，不是外挂脚本。它**不会**移动鼠标、模拟点击或拖拽，也**不会**向炉石进程注入任何操作。
 
 This build does not auto-play. It does not move the mouse, synthesize clicks or drags, or inject input into the Hearthstone process. Extending it into a bot would likely conflict with Blizzard’s Terms of Service. Don’t.
+
+## 启动器与陪伴 / Launcher and companion
+
+打开应用后先是启动器。可以选「澄」、填写模型和 Power.log、选择 `Hearthstone.exe` 或 `Battle.net.exe`，再点「启动炉石」或「只开陪伴（不启动炉石）」。
+
+Windows 只会在默认安装目录和已经读到的注册表安装位置里找程序，不会扫描整块硬盘，也不会偷偷改 `log.config`。找到 Battle.net 时使用 `battlenet://hs` 交接。登录发生在 Battle.net 自己的窗口。Buddy 不收集密码。启动失败会留在启动器上。成功只表示系统接受了请求，不表示对局已经开始。
+
+macOS 会明确写「尚未在真机验证」，不会假装启动成功。
+
+陪伴窗口是另一个透明、无边框、置顶的窗口。气泡先说下一手，再允许展开理由。安静模式不主动开口。同一局面不会反复朗读。场面变化会取消上一次语音。
+
+语音默认关闭。`command` 后端需要你自己提供开源程序的绝对路径，参数里单独放一行 `{{text}}`，不会走 shell。`os-speech` 是 Windows 的 System.Speech，不是随应用打包的开源语音。这台开发环境没有安装 espeak-ng，所以没有做端到端中文出声；测试覆盖了参数合同、失败和取消。
+
+全屏独占时覆盖层可能看不见。建议无边框窗口或窗口化。这一点没有在真实 Windows 上验证。
 
 ## 环境 / Requirements
 

@@ -1,0 +1,57 @@
+.companion-root {
+  height: 100%;
+  background: transparent;
+  color: #f6edd8;
+  font-family: "Outfit", "PingFang SC", "Microsoft YaHei", "WenQuanYi Micro Hei", sans-serif;
+}
+.companion-root.preview {
+  background:
+    linear-gradient(45deg, #c8c2b8 25%, transparent 25%),
+    linear-gradient(-45deg, #c8c2b8 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #c8c2b8 75%),
+    linear-gradient(-45deg, transparent 75%, #c8c2b8 75%);
+  background-size: 28px 28px;
+  background-position: 0 0, 0 14px, 14px -14px, -14px 0;
+  background-color: #efeae2;
+}
+.companion-root, .companion-root * { pointer-events: none; }
+.companion-stack { pointer-events: auto; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; padding: 12px; }
+.cheng { width: min(100%, 340px); height: auto; margin: 0 auto; filter: drop-shadow(0 12px 16px rgba(0, 0, 0, 0.28)); }
+.cheng-breath { transform-origin: 180px 420px; animation: breath 3.6s ease-in-out infinite; }
+.cheng-eyes-closed { opacity: 0; }
+.cheng-eyes { animation: blink 5.4s infinite; }
+.cheng[data-expression='thinking'] .cheng-eyes { transform: translateY(1px); }
+.cheng[data-expression='error'] { filter: saturate(0.85); }
+@keyframes breath { 50% { transform: translateY(3px) scale(1.012, 0.992); } }
+@keyframes blink { 0%, 42%, 48%, 100% { opacity: 1; } 44%, 46% { opacity: 0; } }
+.cheng.reduce .cheng-breath, .cheng.reduce .cheng-eyes { animation: none; }
+.bubble {
+  pointer-events: auto;
+  margin-bottom: 8px;
+  background: #f8e7c6;
+  color: #3c2716;
+  border: 2px solid #8d6232;
+  border-radius: 16px 16px 16px 4px;
+  padding: 12px 14px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+  animation: bubble-in 280ms ease-out;
+}
+.cheng.reduce + .bubble, .reduce .bubble { animation: none; }
+@keyframes bubble-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.bubble p { margin: 0; line-height: 1.45; }
+.bubble .who { font-size: 12px; letter-spacing: 0.12em; color: #8a5a28; }
+.bubble-actions, .companion-controls { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.bubble button, .companion-controls button {
+  pointer-events: auto;
+  border-radius: 999px;
+  border: 1px solid rgba(90, 50, 24, 0.35);
+  background: transparent;
+  color: #5c3a1e;
+  padding: 4px 8px;
+  font: inherit;
+  cursor: pointer;
+}
+.companion-controls button { color: #f6edd8; border-color: rgba(246, 237, 216, 0.35); background: rgba(20, 12, 8, 0.45); }
+.drag-handle { -webkit-app-region: drag; height: 18px; }
+.companion-controls, .bubble button, .bubble { -webkit-app-region: no-drag; }
+.detail { white-space: pre-wrap; margin-top: 8px; font-size: 13px; }

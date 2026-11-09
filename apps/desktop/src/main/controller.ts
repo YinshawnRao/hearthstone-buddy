@@ -23,6 +23,7 @@ export class CoachApp {
   private llmDetail = '';
   private autoTimer: NodeJS.Timeout | null = null;
   private requestId = 0;
+  private presenter: ((state: ViewState) => void) | null = null;
   private readonly watcher: LogWatcher;
 
   constructor() {
@@ -41,6 +42,10 @@ export class CoachApp {
 
   currentSettings(): Settings {
     return this.settings;
+  }
+
+  setPresenter(presenter: (state: ViewState) => void): void {
+    this.presenter = presenter;
   }
 
   view(): ViewState {
@@ -115,9 +120,10 @@ export class CoachApp {
     const signature = this.boardSignature;
     if (!isConfigured(this.settings) && process.env.HS_COACH_MOCK_LLM !== '1') {
       this.advice = await requestAdvice(this.settings, board);
-      this.llm = 'unconfigured';
+      this.llm = this.advice.fallback ? 'unconfigured' : 'ok';
       this.llmDetail = this.advice.detail ?? '';
       this.publish();
+      this.presenter?.(this.view());
       return this.view();
     }
     this.llm = 'thinking';
@@ -129,6 +135,7 @@ export class CoachApp {
     this.llm = advice.fallback ? 'error' : 'ok';
     this.llmDetail = advice.detail ?? '';
     this.publish();
+    this.presenter?.(this.view());
     return this.view();
   }
 
@@ -184,6 +191,7 @@ export class CoachApp {
       this.boardSignature = nextKey;
       this.advice = null;
       this.lastUpdate = new Date().toISOString();
+      this.presenter?.(this.view());
       if (this.llm !== 'thinking') {
         this.llm = isConfigured(this.settings) || process.env.HS_COACH_MOCK_LLM === '1' ? 'ready' : 'unconfigured';
         this.llmDetail = '';

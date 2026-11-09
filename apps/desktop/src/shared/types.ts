@@ -1,4 +1,6 @@
 import type { Advice, BoardSnapshot } from '@hs-coach/parser';
+import type { CompanionMode } from './bubble';
+import type { TtsBackend } from './tts';
 
 export type ProviderId = 'openai' | 'anthropic' | 'ollama';
 
@@ -13,8 +15,16 @@ export interface Settings {
   ollamaBaseUrl: string;
   ollamaModel: string;
   logPath: string;
+  gameExecutable: string;
   demoMode: boolean;
   autoAnalyze: boolean;
+  characterId: string;
+  companionMode: CompanionMode;
+  lowMotion: boolean;
+  ttsEnabled: boolean;
+  ttsBackend: TtsBackend;
+  ttsCommand: string;
+  ttsArgs: string[];
 }
 
 export interface AppStatus {

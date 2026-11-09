@@ -201,6 +201,39 @@ export function SettingsDrawer({
         </section>
 
         <section>
+          <h3>陪伴与语音</h3>
+          <label>
+            说话方式
+            <select value={draft.companionMode} onChange={(event) => patch({ companionMode: event.target.value as Settings['companionMode'] })}>
+              <option value="coach">参谋：先说下一手</option>
+              <option value="companion">陪伴：短句加下一手</option>
+              <option value="quiet">安静：不主动开口</option>
+            </select>
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={draft.lowMotion} onChange={(event) => patch({ lowMotion: event.target.checked })} />
+            <span><strong>减少动作</strong><small>关闭眨眼和呼吸动画。</small></span>
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={draft.ttsEnabled} onChange={(event) => patch({ ttsEnabled: event.target.checked })} />
+            <span><strong>朗读气泡</strong><small>默认关闭。文字始终可用。</small></span>
+          </label>
+          <label>
+            语音后端
+            <select value={draft.ttsBackend} onChange={(event) => patch({ ttsBackend: event.target.value as Settings['ttsBackend'] })}>
+              <option value="off">关闭</option>
+              <option value="command">本机开源程序（填写绝对路径）</option>
+              <option value="os-speech">操作系统语音（不是随应用打包的开源语音）</option>
+            </select>
+          </label>
+          <label>
+            语音程序
+            <input value={draft.ttsCommand} spellCheck={false} placeholder="例如 C:\Tools\espeak-ng\espeak-ng.exe" onChange={(event) => patch({ ttsCommand: event.target.value })} />
+          </label>
+          <label>
+            参数（一项一行，必须包含一行 {'{{text}}'}）
+            <textarea value={draft.ttsArgs.join('\n')} spellCheck={false} onChange={(event) => patch({ ttsArgs: event.target.value.split(/\r?\n/).filter(Boolean) })} />
+          </label>
           <label className="check">
             <input type="checkbox" checked={draft.autoAnalyze} onChange={(event) => patch({ autoAnalyze: event.target.checked })} />
             <span>

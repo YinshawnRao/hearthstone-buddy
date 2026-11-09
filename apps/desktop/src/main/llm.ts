@@ -95,16 +95,6 @@ function anthropicText(data: unknown): string {
   return text;
 }
 
-function setupGuidance(settings: Settings): string {
-  if (settings.provider === 'ollama') {
-    return 'Ollama 不需要密钥。填写本机地址（默认 http://127.0.0.1:11434/v1）和已经拉取的模型名，然后保存。';
-  }
-  if (settings.provider === 'anthropic') {
-    return '填写 Anthropic 的 API Key 和模型名。密钥只保存在本机用户目录，不会写入仓库。';
-  }
-  return '填写 OpenAI 兼容接口的地址、密钥和模型名。DeepSeek、本地代理，以及 Codex 风格网关都用这一项。地址一般以 /v1 结尾。指向本机地址时可以不填密钥。';
-}
-
 function describeError(error: unknown, settings: Settings): string {
   if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
     return '请求超过 30 秒还没有返回。检查接口地址，或确认 Ollama 已经启动。';

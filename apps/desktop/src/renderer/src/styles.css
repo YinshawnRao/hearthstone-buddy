@@ -95,6 +95,18 @@ img { display: block; max-width: 100%; }
 .chip.on, .pill.on { background: rgba(216, 106, 50, 0.28); border-color: #f0b27a; }
 .chip.warn { color: #f0d090; border-color: #e2b15c; }
 .top-actions { display: flex; gap: 8px; }
+.launcher {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1.1fr;
+  gap: 12px;
+  margin: 12px 12px 0;
+  padding: 14px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #4a301c, #24160e);
+  border: 1px solid rgba(231, 201, 138, 0.45);
+}
+.launcher h2 { font-family: var(--serif); font-size: 28px; }
+.launcher .launch-actions { grid-column: 1 / -1; }
 .pill { background: linear-gradient(180deg, #6a4a2c, #3a2618); }
 .pill:hover, .ghost:hover { filter: brightness(1.08); }
 
@@ -443,7 +455,7 @@ img { display: block; max-width: 100%; }
 .drawer label { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; font-size: 13px; color: #e6d3b0; }
 .key-row { display: flex; gap: 8px; align-items: center; }
 .key-row input { flex: 1; }
-.drawer input[type="text"], .drawer input[type="password"], .drawer input:not([type]) {
+.drawer select, .drawer textarea, .drawer input[type="text"], .drawer input[type="password"], .drawer input:not([type]) {
   width: 100%;
   border-radius: 8px;
   border: 1px solid rgba(231, 201, 138, 0.35);
