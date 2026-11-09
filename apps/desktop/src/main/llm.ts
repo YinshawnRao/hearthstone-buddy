@@ -10,7 +10,7 @@ import {
   type BoardSnapshot,
   type CatalogCard,
   type CardSourceInfo
-} from '@hs-coach/parser';
+} from '@hearthstone-buddy/parser';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Settings } from '../shared/types';

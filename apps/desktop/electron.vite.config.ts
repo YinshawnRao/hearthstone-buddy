@@ -6,9 +6,9 @@ const parserEntry = resolve(__dirname, '../../packages/parser/src/index.ts');
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin({ exclude: ['@hs-coach/parser'] })],
+    plugins: [externalizeDepsPlugin({ exclude: ['@hearthstone-buddy/parser'] })],
     resolve: {
-      alias: { '@hs-coach/parser': parserEntry }
+      alias: { '@hearthstone-buddy/parser': parserEntry }
     }
   },
   preload: {
@@ -17,7 +17,7 @@ export default defineConfig({
   renderer: {
     plugins: [react()],
     resolve: {
-      alias: { '@hs-coach/parser': parserEntry }
+      alias: { '@hearthstone-buddy/parser': parserEntry }
     }
   }
 });

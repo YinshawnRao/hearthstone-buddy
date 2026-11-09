@@ -1,5 +1,5 @@
 {
-  "name": "@hs-coach/desktop",
+  "name": "@hearthstone-buddy/desktop",
   "productName": "Hearthstone Buddy",
   "description": "炉石 Buddy desktop shell. Launcher, transparent companion, and Power.log advice. Does not control the game.",
   "version": "0.1.0",
@@ -15,7 +15,7 @@
   "dependencies": {
     "@fontsource/fraunces": "^5.1.1",
     "@fontsource/outfit": "^5.1.1",
-    "@hs-coach/parser": "0.1.0",
+    "@hearthstone-buddy/parser": "0.1.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

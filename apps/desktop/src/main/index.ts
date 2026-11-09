@@ -3,11 +3,12 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { discoverGameTargets, isApprovedBattleNetUri, planLaunch, validateManualGamePath, windowPlanAfterLaunch, type GameTarget } from '../shared/launch';
+import { discoverGameTargets, isApprovedBattleNetUri, KNOWN_REGISTRY_QUERIES, parseRegQueryOutput, planLaunch, validateManualGamePath, windowPlanAfterLaunch, type GameTarget } from '../shared/launch';
+import { allowIpc, redactView, type WindowRole } from '../shared/privacy';
+import { SpeechGate } from '../shared/presenter';
 import type { Settings, ViewState } from '../shared/types';
 import { CoachApp } from './controller';
 import { cancelSpeech, speakText } from './speech';
-import { decideBubble } from '../shared/bubble';
 
 app.setName('hearthstone-buddy');
 
@@ -24,10 +25,16 @@ let coach: CoachApp | null = null;
 let launcher: BrowserWindow | null = null;
 let companion: BrowserWindow | null = null;
 let tray: Tray | null = null;
-let lastSpoken = '';
+const speechGate = new SpeechGate();
+const windowRoles = new Map<number, WindowRole>();
 
-function isOurSender(id: number): boolean {
-  return BrowserWindow.getAllWindows().some((win) => win.webContents.id === id);
+function roleOf(id: number): WindowRole | null {
+  return windowRoles.get(id) ?? null;
+}
+
+function remember(win: BrowserWindow, role: WindowRole): void {
+  windowRoles.set(win.webContents.id, role);
+  win.on('closed', () => windowRoles.delete(win.webContents.id));
 }
 
 function sharedWebPreferences() {
@@ -65,6 +72,7 @@ function createLauncher(): BrowserWindow {
   });
   win.setMenuBarVisibility(false);
   win.once('ready-to-show', () => win.show());
+  remember(win, 'launcher');
   win.on('closed', () => {
     if (launcher === win) launcher = null;
   });
@@ -95,6 +103,7 @@ function createCompanion(): BrowserWindow {
   });
   win.setAlwaysOnTop(true, 'floating');
   win.once('ready-to-show', () => win.showInactive());
+  remember(win, 'companion');
   win.on('closed', () => {
     if (companion === win) companion = null;
   });
@@ -178,25 +187,15 @@ async function captureShots(win: BrowserWindow, coachApp: CoachApp): Promise<voi
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'launcher.png'), (await win.capturePage()).toPNG());
   const overlay = createCompanion();
-  await new Promise((resolve) => setTimeout(resolve, 900));
+  await new Promise((resolve) => setTimeout(resolve, 1800));
   fs.writeFileSync(path.join(dir, 'companion.png'), (await overlay.capturePage()).toPNG());
-  app.quit();
+  app.exit(0);
 }
 
-function present(state: ViewState): void {
-  const decision = decideBubble({
-    mode: state.settings.companionMode,
-    boardKey: `${state.board.turn}:${state.advice?.summary ?? ''}`,
-    advice: state.advice,
-    thinking: state.status.llm === 'thinking',
-    now: Date.now(),
-    last: lastSpoken ? { signature: lastSpoken, at: Date.now() } : undefined
-  });
-  if (!decision.speak || decision.signature === lastSpoken) {
-    if (state.advice == null) cancelSpeech();
-    return;
-  }
-  lastSpoken = decision.signature;
+function present(state: ViewState, replay = false): void {
+  const result = speechGate.decide(state, Date.now(), replay);
+  if (result.cancel || state.advice == null) cancelSpeech();
+  if (!result.speak || !state.settings.ttsEnabled) return;
   void speakText(
     {
       enabled: state.settings.ttsEnabled,
@@ -204,42 +203,72 @@ function present(state: ViewState): void {
       command: state.settings.ttsCommand,
       args: state.settings.ttsArgs
     },
-    decision.text
+    result.text
   );
+}
+
+async function readRegistryLocations(): Promise<string[]> {
+  if (process.platform !== 'win32') return [];
+  const found: string[] = [];
+  for (const query of KNOWN_REGISTRY_QUERIES) {
+    const text = await new Promise<string>((resolve) => {
+      const child = spawn('reg.exe', ['query', query.key, '/v', query.value], { shell: false, windowsHide: true });
+      let out = '';
+      child.stdout?.on('data', (chunk: Buffer) => {
+        out += chunk.toString('utf8');
+      });
+      child.once('error', () => resolve(''));
+      child.once('exit', () => resolve(out));
+    });
+    const location = parseRegQueryOutput(text, query.value);
+    if (location) found.push(location);
+  }
+  return found;
 }
 
 app.whenReady().then(() => {
   coach = new CoachApp();
   const coachApp = coach;
-  coachApp.setPresenter(present);
+  coachApp.setPresenter((state) => present(state));
+  coachApp.setRoleLookup((id) => roleOf(id));
   ensureTray();
 
-  const guard = (id: number): boolean => isOurSender(id);
-  ipcMain.handle('state:get', (event) => (guard(event.sender.id) ? coachApp.view() : null));
+  const permitted = (id: number, channel: string): boolean => {
+    const role = roleOf(id);
+    return role != null && allowIpc(role, channel);
+  };
+  ipcMain.handle('state:get', (event) => {
+    const role = roleOf(event.sender.id);
+    if (!role || !allowIpc(role, 'state:get')) return null;
+    const state = coachApp.view();
+    return role === 'companion' ? redactView(state) : state;
+  });
   ipcMain.handle('settings:save', (event, input: unknown) => {
-    if (!guard(event.sender.id) || !input || typeof input !== 'object') return coachApp.view();
+    if (!permitted(event.sender.id, 'settings:save') || !input || typeof input !== 'object') return coachApp.view();
     return coachApp.save(input as Partial<Settings>);
   });
-  ipcMain.handle('analyze', (event) => (guard(event.sender.id) ? coachApp.analyze() : coachApp.view()));
+  ipcMain.handle('analyze', (event) => (permitted(event.sender.id, 'analyze') ? coachApp.analyze() : coachApp.view()));
   ipcMain.handle('log:choose', async (event) => {
-    if (!guard(event.sender.id)) return coachApp.view();
+    if (!permitted(event.sender.id, 'log:choose')) return coachApp.view();
     const result = await dialog.showOpenDialog({ title: '选择 Power.log', properties: ['openFile'], filters: [{ name: 'Power.log', extensions: ['log', 'txt'] }] });
     if (result.canceled || !result.filePaths[0]) return coachApp.view();
     return coachApp.save({ logPath: result.filePaths[0], demoMode: false });
   });
-  ipcMain.handle('log:auto', (event) => (guard(event.sender.id) ? coachApp.save({ logPath: '' }) : coachApp.view()));
-  ipcMain.handle('game:discover', (event) => {
-    if (!guard(event.sender.id)) return { note: '拒绝。', candidates: [] };
+  ipcMain.handle('log:auto', (event) => (permitted(event.sender.id, 'log:auto') ? coachApp.save({ logPath: '' }) : coachApp.view()));
+  ipcMain.handle('game:discover', async (event) => {
+    if (!permitted(event.sender.id, 'game:discover')) return { note: '拒绝。', candidates: [] };
+    const registryLocations = await readRegistryLocations();
     const found = discoverGameTargets({
       platform: process.platform,
       programFiles: process.env.ProgramFiles,
       programFilesX86: process.env['ProgramFiles(x86)'],
+      registryLocations,
       exists: existsFile
     });
     return { note: found.note, candidates: found.candidates.map((item) => ({ executable: item.executable, label: item.label })) };
   });
   ipcMain.handle('game:choose', async (event) => {
-    if (!guard(event.sender.id)) return coachApp.view();
+    if (!permitted(event.sender.id, 'game:choose')) return coachApp.view();
     const result = await dialog.showOpenDialog({ title: '选择 Hearthstone.exe 或 Battle.net.exe', properties: ['openFile'], filters: [{ name: 'Executable', extensions: ['exe'] }] });
     if (result.canceled || !result.filePaths[0]) return coachApp.view();
     const checked = validateManualGamePath(result.filePaths[0], existsFile);
@@ -247,45 +276,45 @@ app.whenReady().then(() => {
     return coachApp.save({ gameExecutable: checked.target.executable });
   });
   ipcMain.handle('game:launch', async (event) => {
-    if (!guard(event.sender.id)) return { ok: false, message: '拒绝。' };
+    if (!permitted(event.sender.id, 'game:launch')) return { ok: false, message: '拒绝。' };
     const result = await executeLaunch(coachApp.currentSettings());
     openCompanionAndHideLauncher(result.ok);
     return result;
   });
   ipcMain.handle('companion:only', (event) => {
-    if (!guard(event.sender.id)) return { ok: false, message: '拒绝。' };
+    if (!permitted(event.sender.id, 'companion:only')) return { ok: false, message: '拒绝。' };
     createCompanion();
     launcher?.hide();
     return { ok: true, message: '只打开了陪伴窗口，没有启动炉石。这不是对局已经开始。' };
   });
   ipcMain.handle('companion:click-through', (event, ignore: unknown) => {
-    if (!guard(event.sender.id) || typeof ignore !== 'boolean') return;
+    if (!permitted(event.sender.id, 'companion:click-through') || typeof ignore !== 'boolean') return;
     const owner = BrowserWindow.fromWebContents(event.sender);
     owner?.setIgnoreMouseEvents(ignore, { forward: true });
   });
   ipcMain.handle('companion:cycle-mode', (event) => {
-    if (!guard(event.sender.id)) return coachApp.view();
+    if (!permitted(event.sender.id, 'companion:cycle-mode')) return coachApp.view();
     const order = ['coach', 'companion', 'quiet'] as const;
     const current = coachApp.currentSettings().companionMode;
     const next = order[(order.indexOf(current) + 1) % order.length];
     return coachApp.save({ companionMode: next });
   });
   ipcMain.handle('companion:replay', (event) => {
-    if (!guard(event.sender.id)) return;
-    lastSpoken = '';
-    present(coachApp.view());
+    if (!permitted(event.sender.id, 'companion:replay')) return;
+    speechGate.replay();
+    present(coachApp.view(), true);
   });
   ipcMain.handle('launcher:show', (event) => {
-    if (!guard(event.sender.id)) return;
+    if (!permitted(event.sender.id, 'launcher:show')) return;
     if (!launcher || launcher.isDestroyed()) launcher = createLauncher();
     else launcher.show();
   });
   ipcMain.handle('companion:hide', (event) => {
-    if (!guard(event.sender.id)) return;
+    if (!permitted(event.sender.id, 'companion:hide')) return;
     BrowserWindow.fromWebContents(event.sender)?.hide();
   });
   ipcMain.handle('app:quit', (event) => {
-    if (guard(event.sender.id)) app.quit();
+    if (permitted(event.sender.id, 'app:quit')) app.quit();
   });
 
   launcher = createLauncher();

@@ -1,4 +1,4 @@
-import type { Advice, BoardSnapshot } from '@hs-coach/parser';
+import type { Advice, BoardSnapshot } from '@hearthstone-buddy/parser';
 import type { AppStatus } from '../../../shared/types';
 
 export function AdvicePanel({

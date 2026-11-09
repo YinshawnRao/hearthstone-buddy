@@ -1,4 +1,4 @@
-import type { Advice, BoardSnapshot } from '@hs-coach/parser';
+import type { Advice, BoardSnapshot } from '@hearthstone-buddy/parser';
 import type { CompanionMode } from './bubble';
 import type { TtsBackend } from './tts';
 

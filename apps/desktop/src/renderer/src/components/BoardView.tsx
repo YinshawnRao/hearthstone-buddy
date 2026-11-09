@@ -1,4 +1,4 @@
-import type { BoardSnapshot, HeroView } from '@hs-coach/parser';
+import type { BoardSnapshot, HeroView } from '@hearthstone-buddy/parser';
 import { ArtWindow, HandRender, MinionToken, Portrait } from './HsCard';
 
 function Mana({ available, max }: { available: number | null; max: number | null }) {

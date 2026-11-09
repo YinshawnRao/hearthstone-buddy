@@ -3,14 +3,16 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { demoBoard, type Advice } from '@hearthstone-buddy/parser';
 import { decideBubble } from '../src/shared/bubble.ts';
 import { defaultCharacter, findCharacter } from '../src/shared/characters.ts';
-import { discoverGameTargets, planLaunch, validateManualGamePath, windowPlanAfterLaunch } from '../src/shared/launch.ts';
+import { discoverGameTargets, parseRegQueryOutput, planLaunch, validateManualGamePath, windowPlanAfterLaunch } from '../src/shared/launch.ts';
 import { mergeLegacySettings, legacyUserDataDirs } from '../src/shared/migrate.ts';
+import { allowIpc, redactView, shouldCommitAnalysis } from '../src/shared/privacy.ts';
+import { SpeechGate } from '../src/shared/presenter.ts';
 import { planCommandTts, planOsSpeech, sanitizeSpeechText } from '../src/shared/tts.ts';
 import { cancelSpeech, speakText } from '../src/main/speech.ts';
-import type { Advice } from '@hs-coach/parser';
-import type { Settings } from '../src/shared/types.ts';
+import type { Settings, ViewState } from '../src/shared/types.ts';
 
 const blankSettings: Settings = {
   provider: 'openai',
@@ -148,4 +150,83 @@ test('TTS cancel stops a running adapter process', async () => {
   const result = await pending;
   assert.equal(result.ok, false);
   assert.match(result.message, /取消/);
+});
+
+function viewFor(summary: string, turn: number): ViewState {
+  const board = demoBoard();
+  board.turn = turn;
+  return {
+    board,
+    advice: { ...advice, summary },
+    settings: { ...blankSettings, ttsEnabled: true, ttsBackend: 'off' },
+    status: {
+      mode: 'demo',
+      watching: false,
+      logPath: null,
+      logFound: false,
+      searched: [],
+      logError: null,
+      lastUpdate: null,
+      linesParsed: 0,
+      llm: 'ok',
+      llmDetail: '',
+      modelLabel: '本地规则'
+    }
+  };
+}
+
+test('speech cooldown uses the earlier utterance time and replay can speak again', () => {
+  const gate = new SpeechGate();
+  const first = gate.decide(viewFor('先解嘲讽。', 6), 1_000);
+  assert.equal(first.speak, true);
+  const during = gate.decide(viewFor('先解嘲讽。', 6), 5_000);
+  assert.equal(during.speak, false);
+  assert.equal(during.cancel, false);
+  const expired = gate.decide(viewFor('先解嘲讽。', 6), 30_000);
+  assert.equal(expired.speak, true);
+  const repeated = gate.decide(viewFor('先解嘲讽。', 6), 31_000);
+  assert.equal(repeated.speak, false);
+  gate.replay();
+  const manual = gate.decide(viewFor('先解嘲讽。', 6), 31_100, true);
+  assert.equal(manual.speak, true);
+});
+
+test('a new snapshot cancels speech even when the summary text repeats', () => {
+  const gate = new SpeechGate();
+  gate.decide(viewFor('先解嘲讽。', 6), 1_000);
+  const changed = gate.decide(viewFor('先解嘲讽。', 7), 2_000);
+  assert.equal(changed.cancel, true);
+  assert.equal(changed.speak, true);
+  const otherLine = gate.decide(viewFor('留着火球。', 7), 3_000);
+  assert.equal(otherLine.speak, true);
+});
+
+test('stale analysis results are dropped and companion views omit secrets', () => {
+  assert.equal(shouldCommitAnalysis(1, 2, 'same', 'same'), false);
+  assert.equal(shouldCommitAnalysis(2, 2, 'board-a', 'board-b'), false);
+  assert.equal(shouldCommitAnalysis(2, 2, 'board-a', 'board-a'), true);
+  const state = viewFor('先解嘲讽。', 6);
+  state.settings.openaiApiKey = 'sk-secret';
+  state.settings.anthropicApiKey = 'ant-secret';
+  const hidden = redactView(state);
+  assert.equal(hidden.settings.openaiApiKey, '');
+  assert.equal(hidden.settings.anthropicApiKey, '');
+  assert.equal(JSON.stringify(hidden).includes('sk-secret'), false);
+  assert.equal(allowIpc('companion', 'settings:save'), false);
+  assert.equal(allowIpc('companion', 'game:launch'), false);
+  assert.equal(allowIpc('launcher', 'settings:save'), true);
+  assert.equal(allowIpc('launcher', 'game:launch'), true);
+});
+
+test('registry output from the two known keys can be parsed and is not required off Windows', () => {
+  const sample = [
+    'HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Hearthstone',
+    '    InstallLocation    REG_SZ    D:\\Games\\Hearthstone',
+    ''
+  ].join('\r\n');
+  assert.equal(parseRegQueryOutput(sample, 'InstallLocation'), 'D:\\Games\\Hearthstone');
+  assert.equal(parseRegQueryOutput(sample, 'InstallPath'), null);
+  const linux = discoverGameTargets({ platform: 'linux', registryLocations: ['D:\\Games\\Hearthstone'], exists: () => true });
+  assert.equal(linux.verifiedPlatform, false);
+  assert.equal(linux.candidates.length, 0);
 });

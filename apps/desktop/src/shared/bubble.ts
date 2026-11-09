@@ -1,4 +1,4 @@
-import type { Advice, BoardSnapshot } from '@hs-coach/parser';
+import type { Advice, BoardSnapshot } from '@hearthstone-buddy/parser';
 
 export type CompanionMode = 'coach' | 'companion' | 'quiet';
 export type Expression = 'idle' | 'thinking' | 'advice' | 'uncertain' | 'encouragement' | 'error';

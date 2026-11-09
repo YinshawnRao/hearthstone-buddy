@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ViewState } from '../../../shared/types';
+import { boardKey } from '@hearthstone-buddy/parser';
 import { decideBubble, type Expression } from '../../../shared/bubble';
 import { findCharacter } from '../../../shared/characters';
 import { Cheng } from './Cheng';
@@ -50,7 +51,7 @@ export function CompanionApp() {
   const decision = state
     ? decideBubble({
         mode: forced ? 'coach' : state.settings.companionMode,
-        boardKey: `${state.board.turn}:${state.board.legalActions.length}:${state.advice?.summary ?? ''}`,
+        boardKey: boardKey(state.board),
         advice: state.advice,
         thinking: state.status.llm === 'thinking',
         now: Date.now()

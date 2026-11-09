@@ -2,7 +2,7 @@
 
 炉石 Buddy（Hearthstone Buddy）是桌面陪伴：原创角色「澄」和你一起看炉石，用气泡说出下一手。她不操作鼠标，不注入游戏。
 
-仓库地址目前仍是 `https://github.com/YinshawnRao/hs-coach`。计划中的 GitHub 名称是 `hearthstone-buddy`，这次没有改远程仓库。还依赖旧名字的地方：远程仓库 slug、npm 包名 `@hs-coach/desktop` 和 `@hs-coach/parser`。窗口标题、配置目录和产品文档已经使用 Buddy。旧的 `%APPDATA%\\hs-coach\\config.json`（以及 macOS / Linux 上对应的 hs-coach 用户目录）会在新的 `hearthstone-buddy` 配置不存在时被读入，密钥不会写进仓库。
+仓库地址目前仍是 `https://github.com/YinshawnRao/hs-coach`。计划中的 GitHub 名称是 `hearthstone-buddy`，远程仓库要等合并后再由维护者改名。npm 包已经是 `@hearthstone-buddy/desktop` 和 `@hearthstone-buddy/parser`。旧的 `%APPDATA%\hs-coach\config.json`（以及 macOS / Linux 上对应的 hs-coach 用户目录）会在新的 `hearthstone-buddy` 配置不存在时被读入，密钥不会写进仓库。
 
 当前切片：启动器、Windows 启动交接、透明陪伴窗口、本地规则分析和可选语音适配。没有做出可下载的已签名安装包。`apps/desktop/electron-builder.yml` 只是未签名 Windows 配置，这次没有在 Windows 上打过包，也没有在真机上验证全屏覆盖。
 
@@ -20,7 +20,7 @@ This build does not auto-play. It does not move the mouse, synthesize clicks or 
 
 打开应用后先是启动器。可以选「澄」、填写模型和 Power.log、选择 `Hearthstone.exe` 或 `Battle.net.exe`，再点「启动炉石」或「只开陪伴（不启动炉石）」。
 
-Windows 只会在默认安装目录和已经读到的注册表安装位置里找程序，不会扫描整块硬盘，也不会偷偷改 `log.config`。找到 Battle.net 时使用 `battlenet://hs` 交接。登录发生在 Battle.net 自己的窗口。Buddy 不收集密码。启动失败会留在启动器上。成功只表示系统接受了请求，不表示对局已经开始。
+Windows 只会查看两个固定注册表项（炉石的 `InstallLocation` 和 Battle.net 的 `InstallPath`）以及默认的 Program Files 路径，不会扫描整块硬盘，也不会偷偷改 `log.config`。非 Windows 环境不会运行 `reg.exe`。找到 Battle.net 时使用 `battlenet://hs` 交接。登录发生在 Battle.net 自己的窗口。Buddy 不收集密码。启动失败会留在启动器上。成功只表示系统接受了请求，不表示对局已经开始。
 
 macOS 会明确写「尚未在真机验证」，不会假装启动成功。
 
@@ -91,9 +91,9 @@ FileSizeLimit.Int=-1
 
 ### 日志文件在哪 / Where Power.log is written
 
-每次启动炉石，通常会在 Logs 目录下新建一个会话文件夹，例如 `Hearthstone_2026_04_01_12_00_00/Power.log`。hs-coach 会在候选目录里挑选**修改时间最新**的 `Power.log`（也认 `power.log`）。也可以在设置里指定文件或目录。
+每次启动炉石，通常会在 Logs 目录下新建一个会话文件夹，例如 `Hearthstone_2026_04_01_12_00_00/Power.log`。Buddy 会在候选目录里挑选**修改时间最新**的 `Power.log`（也认 `power.log`）。也可以在设置里指定文件或目录。
 
-Each launch usually creates a session folder such as `Hearthstone_2026_04_01_12_00_00/Power.log`. hs-coach follows the newest `Power.log`. You can override the file or folder in Settings.
+Each launch usually creates a session folder such as `Hearthstone_2026_04_01_12_00_00/Power.log`. Buddy follows the newest `Power.log`. You can override the file or folder in Settings.
 
 **Windows（优先自动探测）**
 

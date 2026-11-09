@@ -1,5 +1,5 @@
 {
-  "name": "hs-coach",
+  "name": "hearthstone-buddy",
   "private": true,
   "version": "0.1.0",
   "description": "炉石 Buddy / Hearthstone Buddy. A desktop companion for Hearthstone decisions. Does not control the game.",
@@ -8,11 +8,11 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev -w @hs-coach/desktop",
-    "build": "npm run build -w @hs-coach/desktop",
-    "start": "npm run start -w @hs-coach/desktop",
-    "test": "npm run test -w @hs-coach/parser && npm run test -w @hs-coach/desktop",
-    "typecheck": "npm run typecheck -w @hs-coach/parser && npm run typecheck -w @hs-coach/desktop",
+    "dev": "npm run dev -w @hearthstone-buddy/desktop",
+    "build": "npm run build -w @hearthstone-buddy/desktop",
+    "start": "npm run start -w @hearthstone-buddy/desktop",
+    "test": "npm run test -w @hearthstone-buddy/parser && npm run test -w @hearthstone-buddy/desktop",
+    "typecheck": "npm run typecheck -w @hearthstone-buddy/parser && npm run typecheck -w @hearthstone-buddy/desktop",
     "cards:refresh": "node scripts/refresh-cards.mjs"
   },
   "engines": {

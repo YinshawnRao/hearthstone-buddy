@@ -132,3 +132,22 @@ export function isApprovedBattleNetUri(uri: string): uri is 'battlenet://hs' {
 export function windowPlanAfterLaunch(ok: boolean): { hideLauncher: boolean; showCompanion: boolean } {
   return ok ? { hideLauncher: true, showCompanion: true } : { hideLauncher: false, showCompanion: false };
 }
+
+/** Fixed registry queries. Values are never taken from the model or from a free-form UI string. */
+export const KNOWN_REGISTRY_QUERIES = [
+  { key: 'HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Hearthstone', value: 'InstallLocation' },
+  { key: 'HKLM\\SOFTWARE\\WOW6432Node\\Blizzard Entertainment\\Battle.net', value: 'InstallPath' }
+] as const;
+
+export function parseRegQueryOutput(text: string, valueName: string): string | null {
+  const wanted = valueName.toLowerCase();
+  for (const line of text.split(/\r?\n/)) {
+    const match = /^\s*([^\s]+)\s+REG_\w+\s+(.+)$/.exec(line);
+    if (!match) continue;
+    if (match[1].toLowerCase() !== wanted) continue;
+    const location = match[2].trim().replace(/^"|"$/g, '');
+    if (!location || location.includes('\0')) return null;
+    return location;
+  }
+  return null;
+}
