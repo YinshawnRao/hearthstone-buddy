@@ -1,0 +1,10 @@
+{
+  "provider": "HearthstoneJSON (HearthSim)",
+  "docs": "https://hearthstonejson.com/docs/images.html",
+  "metadata": "https://api.hearthstonejson.com/v1/latest/zhCN/cards.collectible.json",
+  "render": "https://art.hearthstonejson.com/v1/render/latest/zhCN/256x/{cardId}.png",
+  "art": "https://art.hearthstonejson.com/v1/256x/{cardId}.jpg",
+  "hero": "https://art.hearthstonejson.com/v1/heroes/latest/256x/{cardId}.png",
+  "refreshedAt": "2026-11-06T07:10:37.568Z",
+  "count": 8328
+}

@@ -1,0 +1,33 @@
+{
+  "note": "Collectible catalog does not include every hero power. These public, non-collectible definitions fill that gap. They are not read from the game client.",
+  "cards": [
+    {
+      "id": "HERO_08bp",
+      "dbfId": 807,
+      "name": "火焰冲击",
+      "cost": 2,
+      "attack": null,
+      "health": null,
+      "type": "HERO_POWER",
+      "text": "造成1点伤害。",
+      "mechanics": [],
+      "rarity": "FREE",
+      "set": "CORE",
+      "collectible": false
+    },
+    {
+      "id": "HERO_05bp",
+      "dbfId": 229,
+      "name": "稳固射击",
+      "cost": 2,
+      "attack": null,
+      "health": null,
+      "type": "HERO_POWER",
+      "text": "对敌方英雄造成2点伤害。",
+      "mechanics": [],
+      "rarity": "FREE",
+      "set": "CORE",
+      "collectible": false
+    }
+  ]
+}
