@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { CHARACTERS, findCharacter } from '../../shared/characters';
 import type { AppStatus, ViewState } from '../../shared/types';
 import { AdvicePanel } from './components/AdvicePanel';
 import { BoardView } from './components/BoardView';
@@ -37,6 +38,8 @@ export function App() {
   const [drawer, setDrawer] = useState(false);
   const [inspect, setInspect] = useState<string | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
+  const [launchNote, setLaunchNote] = useState('还没有启动。');
+  const [foundGames, setFoundGames] = useState<{ executable: string; label: string }[]>([]);
 
   useEffect(() => {
     const api = window.hsCoach;
@@ -53,6 +56,11 @@ export function App() {
     const offState = api.onState((next) => setState(next));
     const offSettings = api.onOpenSettings(() => setDrawer(true));
     const offInspect = api.onInspect((cardId) => setInspect(cardId || null));
+    void api.discoverGame?.().then((found) => {
+      if (!alive) return;
+      setLaunchNote(found.note);
+      setFoundGames(found.candidates);
+    });
     return () => {
       alive = false;
       offState();
@@ -68,7 +76,7 @@ export function App() {
     return (
       <main className="boot">
         <span className="seal">炉</span>
-        <h1>hs-coach</h1>
+        <h1>炉石 Buddy</h1>
         <p>{bootError}</p>
       </main>
     );
@@ -78,8 +86,8 @@ export function App() {
     return (
       <main className="boot">
         <span className="seal">炉</span>
-        <h1>hs-coach</h1>
-        <p>正在打开炉边…</p>
+        <h1>炉石 Buddy</h1>
+        <p>正在打开启动器…</p>
       </main>
     );
   }
@@ -93,8 +101,8 @@ export function App() {
         <div className="brand">
           <span className="seal">炉</span>
           <div>
-            <strong>hs-coach</strong>
-            <small>对局参谋</small>
+            <strong>炉石 Buddy</strong>
+            <small>Hearthstone Buddy</small>
           </div>
         </div>
         <div className="status">
@@ -120,6 +128,46 @@ export function App() {
         </div>
       </header>
 
+      <section className="launcher">
+        <div>
+          <p className="eyebrow">同伴</p>
+          <h2>{findCharacter(settings.characterId).name}</h2>
+          <p className="quiet-copy">{findCharacter(settings.characterId).tagline}。原创成年角色，不是炉石官方人物。</p>
+          <div className="row-actions">
+            {CHARACTERS.map((character) => (
+              <button
+                key={character.id}
+                type="button"
+                className={settings.characterId === character.id ? 'pill on' : 'pill'}
+                onClick={() => void window.hsCoach?.saveSettings({ ...settings, characterId: character.id }).then(setState)}
+              >
+                {character.name}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="eyebrow">炉石</p>
+          <p className="quiet-copy">{settings.gameExecutable || foundGames[0]?.executable || '尚未选择程序'}</p>
+          <p className="fine">{launchNote}</p>
+          <div className="row-actions">
+            <button type="button" className="ghost" onClick={() => void window.hsCoach?.chooseGame().then(setState)}>选择程序</button>
+            <button type="button" className="ghost" onClick={() => void window.hsCoach?.discoverGame().then((found) => { setLaunchNote(found.note); setFoundGames(found.candidates); })}>重新查找</button>
+          </div>
+        </div>
+        <div>
+          <p className="eyebrow">日志与模型</p>
+          <p className="quiet-copy">{watchLabel(status)} · {modelLabel(status)}</p>
+          <div className="row-actions">
+            <button type="button" className="pill" onClick={openSettings}>模型 / 日志 / 语音</button>
+            <button type="button" className={demo ? 'pill on' : 'pill'} onClick={() => void window.hsCoach?.saveSettings({ ...settings, demoMode: !demo }).then(setState)}>演示局面</button>
+          </div>
+        </div>
+        <div className="row-actions launch-actions">
+          <button type="button" className="primary" onClick={() => void window.hsCoach?.launchGame().then((result) => setLaunchNote(result.message))}>启动炉石</button>
+          <button type="button" className="ghost" onClick={() => void window.hsCoach?.openCompanionOnly().then((result) => setLaunchNote(result.message))}>只开陪伴（不启动炉石）</button>
+        </div>
+      </section>
       <main className="layout">
         <BoardView board={board} onInspect={setInspect} />
         <AdvicePanel

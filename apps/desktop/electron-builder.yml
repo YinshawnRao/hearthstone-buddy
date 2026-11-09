@@ -1,0 +1,16 @@
+appId: com.hearthstonebuddy.desktop
+productName: Hearthstone Buddy
+directories:
+  output: release
+files:
+  - out/**
+  - package.json
+win:
+  target: nsis
+  signAndEditExecutable: false
+nsis:
+  oneClick: false
+  perMachine: false
+artifactName: HearthstoneBuddy-Setup-${version}.${ext}
+# This file configures an unsigned local Windows build.
+# The installer is not produced by CI here, and it has not been tested on a Windows machine.

@@ -1,4 +1,5 @@
-import { boardKey, demoBoard, emptyBoard, type Advice, type BoardSnapshot } from '@hs-coach/parser';
+import { boardKey, demoBoard, emptyBoard, type Advice, type BoardSnapshot } from '@hearthstone-buddy/parser';
+import { redactView, shouldCommitAnalysis, type WindowRole } from '../shared/privacy';
 import { BrowserWindow } from 'electron';
 import { isConfigured, loadSettings, modelLabel, saveSettings, sanitizeSettings } from './config';
 import { requestAdvice } from './llm';
@@ -23,6 +24,8 @@ export class CoachApp {
   private llmDetail = '';
   private autoTimer: NodeJS.Timeout | null = null;
   private requestId = 0;
+  private presenter: ((state: ViewState) => void) | null = null;
+  private roleFor: (webContentsId: number) => WindowRole | null = () => null;
   private readonly watcher: LogWatcher;
 
   constructor() {
@@ -41,6 +44,14 @@ export class CoachApp {
 
   currentSettings(): Settings {
     return this.settings;
+  }
+
+  setPresenter(presenter: (state: ViewState) => void): void {
+    this.presenter = presenter;
+  }
+
+  setRoleLookup(roleFor: (webContentsId: number) => WindowRole | null): void {
+    this.roleFor = roleFor;
   }
 
   view(): ViewState {
@@ -73,7 +84,10 @@ export class CoachApp {
   publish(): void {
     const state = this.view();
     for (const win of BrowserWindow.getAllWindows()) {
-      if (!win.isDestroyed()) win.webContents.send('state', state);
+      if (win.isDestroyed()) continue;
+      const role = this.roleFor(win.webContents.id);
+      if (!role) continue;
+      win.webContents.send('state', role === 'companion' ? redactView(state) : state);
     }
   }
 
@@ -114,21 +128,25 @@ export class CoachApp {
     const board = this.board;
     const signature = this.boardSignature;
     if (!isConfigured(this.settings) && process.env.HS_COACH_MOCK_LLM !== '1') {
-      this.advice = await requestAdvice(this.settings, board);
-      this.llm = 'unconfigured';
+      const advice = await requestAdvice(this.settings, board);
+      if (!shouldCommitAnalysis(token, this.requestId, signature, this.boardSignature)) return this.view();
+      this.advice = advice;
+      this.llm = this.advice.fallback ? 'unconfigured' : 'ok';
       this.llmDetail = this.advice.detail ?? '';
       this.publish();
+      this.presenter?.(this.view());
       return this.view();
     }
     this.llm = 'thinking';
     this.llmDetail = '';
     this.publish();
     const advice = await requestAdvice(this.settings, board);
-    if (token !== this.requestId || signature !== this.boardSignature) return this.view();
+    if (!shouldCommitAnalysis(token, this.requestId, signature, this.boardSignature)) return this.view();
     this.advice = advice;
     this.llm = advice.fallback ? 'error' : 'ok';
     this.llmDetail = advice.detail ?? '';
     this.publish();
+    this.presenter?.(this.view());
     return this.view();
   }
 
@@ -184,6 +202,7 @@ export class CoachApp {
       this.boardSignature = nextKey;
       this.advice = null;
       this.lastUpdate = new Date().toISOString();
+      this.presenter?.(this.view());
       if (this.llm !== 'thinking') {
         this.llm = isConfigured(this.settings) || process.env.HS_COACH_MOCK_LLM === '1' ? 'ready' : 'unconfigured';
         this.llmDetail = '';

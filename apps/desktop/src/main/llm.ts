@@ -10,7 +10,7 @@ import {
   type BoardSnapshot,
   type CatalogCard,
   type CardSourceInfo
-} from '@hs-coach/parser';
+} from '@hearthstone-buddy/parser';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Settings } from '../shared/types';
@@ -93,16 +93,6 @@ function anthropicText(data: unknown): string {
   const text = messageText((data as { content?: unknown }).content);
   if (!text.trim()) throw new Error('响应里没有文本内容');
   return text;
-}
-
-function setupGuidance(settings: Settings): string {
-  if (settings.provider === 'ollama') {
-    return 'Ollama 不需要密钥。填写本机地址（默认 http://127.0.0.1:11434/v1）和已经拉取的模型名，然后保存。';
-  }
-  if (settings.provider === 'anthropic') {
-    return '填写 Anthropic 的 API Key 和模型名。密钥只保存在本机用户目录，不会写入仓库。';
-  }
-  return '填写 OpenAI 兼容接口的地址、密钥和模型名。DeepSeek、本地代理，以及 Codex 风格网关都用这一项。地址一般以 /v1 结尾。指向本机地址时可以不填密钥。';
 }
 
 function describeError(error: unknown, settings: Settings): string {

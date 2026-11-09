@@ -1,4 +1,4 @@
-import { resolvePowerLog, snapshotFromRaw, type BoardSnapshot, type LogEnv, PowerParser } from '@hs-coach/parser';
+import { resolvePowerLog, snapshotFromRaw, type BoardSnapshot, type LogEnv, PowerParser } from '@hearthstone-buddy/parser';
 import fs from 'node:fs';
 import os from 'node:os';
 import { StringDecoder } from 'node:string_decoder';

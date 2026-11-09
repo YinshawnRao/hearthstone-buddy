@@ -1,4 +1,4 @@
-import type { Advice, BoardSnapshot } from '@hs-coach/parser';
+import type { Advice, BoardSnapshot } from '@hearthstone-buddy/parser';
 import type { AppStatus } from '../../../shared/types';
 
 export function AdvicePanel({
@@ -80,7 +80,7 @@ export function AdvicePanel({
           </button>
         ) : null}
       </div>
-      <p className="fine">只读分析。hs-coach 不移动鼠标，也不向炉石进程注入操作。</p>
+      <p className="fine">只读分析。炉石 Buddy 不移动鼠标，也不向炉石进程注入操作。</p>
     </aside>
   );
 }
