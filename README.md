@@ -1,16 +1,16 @@
 # 炉石 Buddy
 
-炉石 Buddy（Hearthstone Buddy）是桌面陪伴：原创角色「澄」和你一起看炉石，用气泡说出下一手。她不操作鼠标，不注入游戏。
+炉石 Buddy（Hearthstone Buddy）是桌面陪伴：原创角色「澄」和你一起看炉石，用气泡说出下一手。她读取 Power.log，整理场面，再给出建议。她不操作鼠标，不注入游戏。
 
-仓库地址目前仍是 `https://github.com/YinshawnRao/hs-coach`。计划中的 GitHub 名称是 `hearthstone-buddy`，远程仓库要等合并后再由维护者改名。npm 包已经是 `@hearthstone-buddy/desktop` 和 `@hearthstone-buddy/parser`。旧的 `%APPDATA%\hs-coach\config.json`（以及 macOS / Linux 上对应的 hs-coach 用户目录）会在新的 `hearthstone-buddy` 配置不存在时被读入，密钥不会写进仓库。
+仓库：https://github.com/YinshawnRao/hearthstone-buddy 。npm 包是 `@hearthstone-buddy/desktop` 和 `@hearthstone-buddy/parser`。
 
-当前切片：启动器、Windows 启动交接、透明陪伴窗口、本地规则分析和可选语音适配。没有做出可下载的已签名安装包。`apps/desktop/electron-builder.yml` 只是未签名 Windows 配置，这次没有在 Windows 上打过包，也没有在真机上验证全屏覆盖。
+当前配置目录是 `hearthstone-buddy`。只有在这个新目录里还没有 `config.json` 时，才会读入旧的 hs-coach 用户目录（Windows `%APPDATA%\hs-coach`，macOS `~/Library/Application Support/hs-coach`，Linux `~/.config/hs-coach`）。密钥不会写进仓库。
+
+已经有的切片：启动器、Windows 启动交接、透明陪伴窗口、澄的分层 SVG、本地规则分析，以及可选的语音适配。没有已签名、可下载的安装包。`apps/desktop/electron-builder.yml` 只是未签名的 Windows 配置，没有在 Windows 上打过包，也没有在真机上验证全屏覆盖。
 
 产品计划在 `docs/product/`。澄的画和授权在 `docs/characters/cheng.md`。
 
-炉石传说**对局参谋**仍然读取 Power.log，整理场面，再给出下一步建议。
-
-Hearthstone decision coach. It reads the same Power.log Hearthstone Deck Tracker and Firestone use, builds a board, and asks a model what to play next.
+Hearthstone Buddy reads the same Power.log Hearthstone Deck Tracker and Firestone use, then recommends a play. It does not play the game.
 
 这是桌面端的分析工具，不是外挂脚本。它**不会**移动鼠标、模拟点击或拖拽，也**不会**向炉石进程注入任何操作。
 
@@ -142,10 +142,13 @@ Calls time out after 30 seconds. A response that is not the expected JSON is sho
 
 Auto-analyze is off by default.
 
-用户目录大约是：
+当前用户配置：
 
-- Windows: `%APPDATA%\hs-coach\config.json`
-- macOS: `~/Library/Application Support/hs-coach/config.json`
+- Windows: `%APPDATA%\hearthstone-buddy\config.json`
+- macOS: `~/Library/Application Support/hearthstone-buddy/config.json`
+- Linux: `~/.config/hearthstone-buddy/config.json`
+
+若上述文件还不存在，启动时会迁移旧目录里的 `hs-coach/config.json`。迁移之后以 `hearthstone-buddy` 这份为准。
 
 ## 演示模式 / Demo mode
 
@@ -153,9 +156,9 @@ Auto-analyze is off by default.
 
 Demo mode parses a built-in Power.log excerpt (mage vs hunter). It is the same parser as live play.
 
-没有配置模型时，窗口仍会打开，建议栏会说明该怎么填。配好 OpenAI 兼容接口、Anthropic 或 Ollama 之后，点「分析局面」。
+没有配置模型时，窗口仍会打开。点「本地分析」会用本地规则和随仓库带上的卡牌目录给出建议，这不是模型调用，也不会编造对手手牌。配好 OpenAI 兼容接口、Anthropic 或 Ollama 之后，「分析局面」才请求模型，并且仍然只能引用当前合法动作编号。
 
-With no key configured, the window still opens and the advice panel explains what to fill in.
+With no key configured, the window still opens. Local analysis uses the bundled rules and card catalog. It is not a model call. A configured provider is what sends the board to a model.
 
 点一张手牌或随从会放大那张卡的官方风格渲染。这只是查看，不会替你打出这张牌。
 
@@ -224,27 +227,31 @@ packages/parser  Power.log 增量解析、场面、启发式合法动作
 ```
 
 - 只消费 `GameState.DebugPrintPower()`。`PowerTaskList` 里的重复行在见到 GameState 之后会忽略，避免标签被加两次。
-- 主进程盯日志（新会话文件夹或文件被截断时会重新读），通过 preload 把场面推到界面。
-- 渲染进程没有 Node，也没有密钥。模型请求在主进程发出。
-- 发给模型的是压缩 JSON（场面 + `legal_actions`）。要求返回 `{ summary, steps[], risk }`。
+- 主进程盯日志（新会话文件夹或文件被截断时会重新读），通过 preload 把场面推到界面。模型请求也在主进程发出。
+- 启动器窗口会收到设置，包括 API Key，因为设置页要能编辑它们。密钥仍写在主进程的 `config.json` 里。陪伴窗口拿到的是同一份状态，但 API Key 字段被清空。
+- 发给模型的是压缩 JSON（场面、卡面对照和 `legal_actions`）。返回要带 `summary`、`steps`、`risk`，还可以有 `alternatives` 和 `uncertainty`。不在合法编号里的动作会被拒绝。
 - 候选动作是启发式的：费用、嘲讽、冻结、冲锋/突袭、英雄技能。还不是服务器下发的 Options 包，复杂战吼和指向规则会漏。
+
+The launcher renderer can display API keys because that screen edits them. The companion renderer receives the same state with those key fields cleared. Model calls stay in the main process.
 
 The legal-action list is a heuristic (mana, taunt, freeze, charge/rush, hero power). It is not the server Options packet yet.
 
 ## 路线图 / Roadmap
 
-- macOS 安装体验、签名和菜单栏
-- 用 Options 包替换启发式动作，补上地标、奥秘和战吼目标
-- 按需缓存更多卡图到用户目录，而不是把全套渲染都放进仓库
-- 更完整的记牌，以及以后再考虑 Hearthstone Deck Tracker 插件
-- 不会做：自动代打
+已经有的：启动器、澄的分层 SVG（眨眼、呼吸、建议/不确定/出错等表情）、气泡和安静模式、Windows 上对 `Hearthstone.exe` / `battlenet://hs` 的交接、本地规则分析，以及可选的语音适配。语音适配还没有在这台环境里合成出中文声音。全屏覆盖和安装包也还没有在 Windows 真机上验证。
+
+之后再做：更稳的本地语音、可替换的委托绘制或 Live2D、已签名的安装包、macOS 启动验证、用 Options 包补上地标、奥秘和战吼、把更多卡图缓存在用户目录，以及记牌或 Hearthstone Deck Tracker 插件。战术规则仍然是进行中的工作，不表示胜率已经解决。
+
+不会做：自动代打。细节见 `docs/product/vision.md` 和 `docs/product/roadmap.md`。
+
+Shipped now: launcher, Cheng’s SVG, bubbles, the Windows handoff, offline analysis, and an opt-in TTS adapter. Later: more reliable local voice, commissioned or Live2D art, signed packaging, a verified macOS launch, and a tighter rules engine. No auto-play.
 
 ## 开发 / Scripts
 
 | 命令 | 作用 |
 | --- | --- |
 | `npm run dev` | 启动 Electron 开发窗口 |
-| `npm test` | 解析器、建议 JSON、日志路径 |
+| `npm test` | 解析器、建议 JSON、日志路径、启动器、气泡和语音适配 |
 | `npm run typecheck` | 桌面端和解析器的 TypeScript |
 | `npm run build` / `npm start` | 构建并用 Electron 打开产物 |
 | `npm run cards:refresh` | 重新下载 HearthstoneJSON 目录和演示卡图 |
