@@ -3,6 +3,11 @@
   "private": true,
   "version": "0.1.0",
   "description": "炉石 Buddy / Hearthstone Buddy. A desktop companion for Hearthstone decisions. Does not control the game.",
+  "homepage": "https://github.com/YinshawnRao/hearthstone-buddy",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YinshawnRao/hearthstone-buddy.git"
+  },
   "workspaces": [
     "apps/*",
     "packages/*"

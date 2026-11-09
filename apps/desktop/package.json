@@ -2,6 +2,11 @@
   "name": "@hearthstone-buddy/desktop",
   "productName": "Hearthstone Buddy",
   "description": "炉石 Buddy desktop shell. Launcher, transparent companion, and Power.log advice. Does not control the game.",
+  "homepage": "https://github.com/YinshawnRao/hearthstone-buddy",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YinshawnRao/hearthstone-buddy.git"
+  },
   "version": "0.1.0",
   "private": true,
   "main": "./out/main/index.js",
